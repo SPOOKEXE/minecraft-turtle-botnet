@@ -1,0 +1,9 @@
+
+# DEV
+edit file.lua
+[WRITE CODE]
+shell file.lua
+
+# LIVE
+pastebin "BLAH" file.lua
+shell file.lua
