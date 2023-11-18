@@ -1,9 +1,16 @@
 
 # DEV
-edit file.lua
+edit startup
 [WRITE CODE]
-shell file.lua
+shell startup
 
 # LIVE
-pastebin "BLAH" file.lua
-shell file.lua
+pastebin "BLAH" startup.lua
+shell startup.lua
+
+# REFS
+https://www.computercraft.info/wiki/Peripheral
+https://www.computercraft.info/wiki/Pastebin_(program)
+https://www.computercraft.info/wiki/Built_In_Turtle_Programs
+https://www.computercraft.info/wiki/Turtle_(API)
+https://www.computercraft.info/forums2/index.php?/topic/5854-json-api-v201-for-computercraft/

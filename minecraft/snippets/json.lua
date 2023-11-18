@@ -187,9 +187,11 @@ end
 
 local function decode(str)
 	str = removeWhite(str)
-	t = parseValue(str)
+	local t = parseValue(str)
 	return t
 end
 
--- IGNORE BELOW IN LIVE
-return { encode = encode, decode = decode, encodePretty = encodePretty }
+local json = { encode = encode, decode = decode, encodePretty = encodePretty }
+
+-->> IGNORE BELOW IN LIVE << --
+return json

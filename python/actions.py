@@ -1,74 +1,70 @@
 
 from enum import Enum
 
-class MovementActions(Enum):
+class TurtleActions(Enum):
 	'''
-	These are the turtle movement actions.
+	Contains all the possible turtle actions.
 	'''
-	forward = 0
-	backward = 1
-	up = 2
-	down = 3
+	getInfo = 1
 
-	turnLeft = 4
-	turnRight = 5
-
-class InteractActions(Enum):
 	'''
-	These are the turtle world-interaction actions.
+	Movement actions.
 	'''
-	attackFront = 0
-	attackAbove = 1
-	attackBelow = 2
+	forward = 5
+	backward = 6
+	up = 7
+	down = 8
+	turnLeft = 9
+	turnRight = 10
 
-	digFront = 3
-	digAbove = 4
-	digBelow = 5
-
-	placeFront = 6
-	placeAbove = 7
-	placeBelow = 8
-
-	detectFront = 9
-	detectAbove = 10
-	detectBelow = 11
-
-	inspectFront = 12
-	inspectAbove = 13
-	inspectBelow = 14
-
-	compareFront = 15
-	compareAbove = 16
-	compareBelow = 17
-
-	dropFront = 18
-	dropAbove = 19
-	dropBelow = 20
-
-	suckFront = 21
-	suckAbove = 22
-	suckBelow = 23
-
-class InventoryActions(Enum):
 	'''
-	These are the turtle inventory management actions.
+	World-interaction actions.
 	'''
-	craftItem = 0
-	selectSlot = 1
-	getSelectedSlot = 2
-	getItemCountInSlot = 3
-	getItemSpaceInSlot = 4
-	getItemDetailsInSlot = 5
-	equipLeft = 6
-	equipRight = 7
-	unequipLeft = 8
-	unequipRight = 9
-	refuel = 10
-	getFuelLevel = 11
-	getFuelLimit = 12
-	transferTo = 13
+	attackFront = 20
+	attackAbove = 21
+	attackBelow = 22
+	digFront = 23
+	digAbove = 24
+	digBelow = 25
+	placeFront = 26
+	placeAbove = 27
+	placeBelow = 28
+	detectFront = 29
+	detectAbove = 30
+	detectBelow = 31
+	inspectFront = 32
+	inspectAbove = 33
+	inspectBelow = 34
+	compareFront = 35
+	compareAbove = 36
+	compareBelow = 37
+	dropFront = 38
+	dropAbove = 39
+	dropBelow = 40
+	suckFront = 41
+	suckAbove = 42
+	suckBelow = 43
 
-class MiscActions(Enum):
-	getId = 0
-	getLabel = 1
-	setLabel = 2
+	'''
+	Inventory management actions.
+	'''
+	craftItem = 53
+	selectSlot = 54
+	getSelectedSlot = 55
+	getItemCountInSlot = 56
+	getItemSpaceInSlot = 57
+	getItemDetailsInSlot = 58
+	equipLeft = 59
+	equipRight = 60
+	unequipLeft = 61
+	unequipRight = 62
+	refuel = 63
+	getFuelLevel = 64
+	getFuelLimit = 65
+	transferTo = 66
+
+	'''
+	Preset Actions
+	'''
+	describeSurrounding = 80
+	
