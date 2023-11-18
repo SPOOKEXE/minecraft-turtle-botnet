@@ -48,7 +48,7 @@ class TurtleActions(Enum):
 	'''
 	Inventory management actions.
 	'''
-	craftItem = 53
+	craftItems = 53
 	selectSlot = 54
 	getSelectedSlot = 55
 	getItemCountInSlot = 56
@@ -56,15 +56,7 @@ class TurtleActions(Enum):
 	getItemDetailsInSlot = 58
 	equipLeft = 59
 	equipRight = 60
-	unequipLeft = 61
-	unequipRight = 62
-	refuel = 63
-	getFuelLevel = 64
-	getFuelLimit = 65
-	transferTo = 66
-
-	'''
-	Preset Actions
-	'''
-	describeSurrounding = 80
-	
+	refuel = 61
+	getFuelLevel = 62
+	getFuelLimit = 63
+	transferTo = 64
