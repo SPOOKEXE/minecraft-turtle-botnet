@@ -7,16 +7,20 @@ import traceback
 from time import sleep, time
 from websockets.sync.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
-from ccturtle import create_turtle_instance, handle_turtle_request
+from ccturtle import create_turtle_instance, handle_turtle_request, is_turtle_id
 
-JSON_DECODE_ERR = json.dumps({ "success" : False, "message" : "Failed to decode the json data." })
-TURTLE_ID_ERR = json.dumps({ "success" : False, "message" : "You must include the turtle_id in the json data." })
+JSON_DECODE_ERR = json.dumps({ "success" : False, 'jobs' : [], "message" : "Failed to decode the json data." })
+TURTLE_ID_ERR = json.dumps({ "success" : False, 'jobs' : [], "message" : "You must include the turtle_id in the json data." })
+
+# generate a closing command
+def generate_closing_command( message : str ) -> str:
+	return json.dumps( {'success' : False, 'jobs' : ['close'], 'message' : message } )
 
 # internally handle the request
 def handle_request( ws : ServerConnection, incoming : str | bytes ) -> None:
 	# check if its a generate_id request
-	if incoming == "kill_turtle": return ws.close()
 	if incoming == "create_turtle": return create_turtle_instance()
+	if incoming == "kill_turtle": return generate_closing_command('Killed the turtle.')
 
 	try: incoming = json.loads( incoming )
 	except json.JSONDecodeError: return JSON_DECODE_ERR
@@ -24,15 +28,15 @@ def handle_request( ws : ServerConnection, incoming : str | bytes ) -> None:
 	try: turtle_id = int( incoming['turtle_id'], 2 )
 	except KeyError: return TURTLE_ID_ERR
 
+	if not is_turtle_id( turtle_id ):
+		return generate_closing_command('No such turtle id exists.')
+
 	print("Turtle Request: ", incoming)
-	success, rdata, message = False, None, None
 	try:
-		success, rdata, message = handle_turtle_request( turtle_id, incoming )
-		if type(rdata) == dict: rdata = json.dumps(rdata)
+		handle_turtle_request( ws, turtle_id, incoming )
 	except Exception as exception:
+		print("An internal server error occured.")
 		print(traceback.format_exception(exception))
-		success, message = False, "An internal server error occured."
-	return json.dumps({"success" : success, "data" : rdata, "message" : message})
 
 # handle requests until the connection is closed!
 def handle_connection(ws : ServerConnection) -> None:
@@ -40,8 +44,7 @@ def handle_connection(ws : ServerConnection) -> None:
 		try:
 			incoming = ws.recv(timeout=None)
 			if type(incoming) == bytes: incoming = incoming.decode('utf-8')
-			response = handle_request(ws, incoming)
-			if response != None: ws.send(response)
+			handle_request(ws, incoming)
 		except ConnectionClosed:
 			print(f'[{ round( time(), 2 ) }] Turtle connection is closed, ending handle connection loop.')
 			break

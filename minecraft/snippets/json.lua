@@ -1,4 +1,4 @@
------------------------------------------------------------------- utils
+
 local controls = {["\n"]="\\n", ["\r"]="\\r", ["\t"]="\\t", ["\b"]="\\b", ["\f"]="\\f", ["\""]="\\\"", ["\\"]="\\\\"}
 
 local function isArray(t)
@@ -83,8 +83,6 @@ end
 local function encodePretty(val)
 	return encodeCommon(val, true, 0, {})
 end
-
------------------------------------------------------------------- decoding
 
 local decodeControls = {}
 for k,v in pairs(controls) do

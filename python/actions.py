@@ -60,3 +60,14 @@ class TurtleActions(Enum):
 	getFuelLevel = 62
 	getFuelLimit = 63
 	transferTo = 64
+
+	'''
+	Customs
+	'''
+	getDirectionFromSign = 78
+	readInventory = 79
+	findItemSlotsByPattern = 80
+	getEquippedItems = 81
+	procreate = 82
+	isBusy = 83
+
