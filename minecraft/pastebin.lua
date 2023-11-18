@@ -1,13 +1,17 @@
+-- IGNORE THESE IN LIVE
+
+local http
+local json = require("json")
+
+-- INSERT JSON CODE HERE
 
 local socket, err = http.websocket("127.0.0.1:5757")
-if socket == false then
-	error(err)
-end
+assert( socket, err )
 
 print("Turtle Started!")
 
-socket.send("Hello server!")
+socket.send('create_turtle')
+local turtle_id, _ = socket.receive()
+print("The turtle unique id is: ", turtle_id)
 
-message, _ = socket.receive()
-print("Received: ", message)
-socket.close()
+socket.send('kill_turtle')
