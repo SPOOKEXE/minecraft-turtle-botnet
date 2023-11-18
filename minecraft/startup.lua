@@ -1,4 +1,4 @@
-local fs, turtle, peripheral, sleep, http
+local fs, turtle, peripheral, sleep, http, textutils
 -->> IGNORE ABOVE IN PRODUCTION <<--
 
 local controls = {["\n"]="\\n", ["\r"]="\\r", ["\t"]="\\t", ["\b"]="\\b", ["\f"]="\\f", ["\""]="\\\"", ["\\"]="\\\\"}
@@ -396,7 +396,7 @@ local function parseEnum( enumName, ... )
 		local returns = { pcall( ActionEnum[ enumName ], ... ) }
 		local success = table.remove(returns, 1)
 		if not success then
-			warn( tostring(returns[1]) )
+			print( tostring(returns[1]) )
 		end
 
 		isTurtleBusy = false
@@ -407,55 +407,58 @@ end
 
 -- ============= --
 
-local socket, errmsg = http.websocket("127.0.0.1:5757")
-assert( socket, errmsg )
+local SocketJobs = { turtle_get_jobs = 'turtle_get_jobs', turtle_send_results = 'turtle_send_results' }
+
+local function SendAndReceive( message )
+	local socket, errmsg = http.websocket("127.0.0.1:5757")
+	assert( socket, errmsg )
+
+	socket.send( message )
+	local response = socket.receive()
+	socket.close()
+	return json.decode( response )
+end
 
 print("Turtle Started!")
 print("Requesting Command-and-Control-Center")
 
-socket.send('create_turtle')
-local turtle_id, _ = socket.receive()
+local query = encode({job = 'turtle_create'})
+local response = SendAndReceive( query )
+assert( response, 'Failed to generate a unique turtle id.' )
+
+local turtle_id = response['message']
 print("Turtle Unique ID: ", turtle_id)
 
 print("Starting Core Loop")
+while true do
+	query = encode({ turtle_id = turtle_id, job = SocketJobs.turtle_get_jobs })
 
-local function CloseSocket()
-	socket.close()
-	socket = nil
-end
-
-while socket do
-	socket.send( encode({ turtle_id = turtle_id }) )
-
-	local values = nil
-	local success, err = pcall(function ()
-		values = json.decode( socket.receive() )
-	end)
-
-	if (not success) or (not values) then
-		warn( tostring(err or 'No values were returned.') )
-		pcall(CloseSocket)
+	response = SendAndReceive( query )
+	if not response then
+		print( tostring(response or 'No values were returned.') )
 		break
 	end
 
-	if values['success'] == false then
+	print( textutils.serialise(response) )
+	sleep(1)
+
+	if response['success'] == false then
 		print('Request failed due to an error:')
-		print( values['message'] )
-		print( )
+		print( response['message'] )
 	end
 
-	local return_values = {}
-	if values['jobs'] then
-		for _, jobItem in values['jobs'] do
+	local results = {}
+	if response['jobs'] then
+		for _, jobItem in ipairs( response['jobs'] ) do
 			if jobItem == 'close' then
-				CloseSocket()
 				break
 			end
-			table.insert(return_values, { parseEnum(table.unpack(jobItem)) })
+			print( textutils.serialise(jobItem) )
+			local result = { parseEnum(table.unpack(jobItem)) }
+			table.insert(results, result)
 		end
+		query = encode({ turtle_id = turtle_id, job = SocketJobs.turtle_send_results, results = results })
+		SendAndReceive(query)
 	end
-
-	if socket then
-		socket.send( encode({ turtle_id = turtle_id, return_values = return_values }) )
-	end
+	sleep(1)
 end

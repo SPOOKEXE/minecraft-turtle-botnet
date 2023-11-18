@@ -1,67 +1,86 @@
 
-
-import threading
-import json
+import asyncio
 import traceback
+import json
 
-from time import sleep, time
-from websockets.sync.server import ServerConnection, serve
-from websockets.exceptions import ConnectionClosed
-from ccturtle import create_turtle_instance, handle_turtle_request, is_turtle_id
+from uuid import uuid4
+from websockets.server import WebSocketServerProtocol, serve
+from ccturtle import create_turtle_instance, get_turtle_jobs, is_turtle_id, put_turtle_results
 
 JSON_DECODE_ERR = json.dumps({ "success" : False, 'jobs' : [], "message" : "Failed to decode the json data." })
+JOB_ID_ERR = json.dumps({ "success" : False, 'jobs' : [], "message" : "Job does not exist in the JSON data." })
 TURTLE_ID_ERR = json.dumps({ "success" : False, 'jobs' : [], "message" : "You must include the turtle_id in the json data." })
 
-# generate a closing command
-def generate_closing_command( message : str ) -> str:
-	return json.dumps( {'success' : False, 'jobs' : ['close'], 'message' : message } )
+def generate_close_command( message : str ) -> str:
+	return {'success' : False, 'jobs' : ['close'], 'message' : message }
 
-# internally handle the request
-def handle_request( ws : ServerConnection, incoming : str | bytes ) -> None:
-	# check if its a generate_id request
-	if incoming == "create_turtle": return create_turtle_instance()
-	if incoming == "kill_turtle": return generate_closing_command('Killed the turtle.')
+def generate_fail_command( message : str ) -> str:
+	return {'success' : False, 'jobs' : None, 'message' : message }
 
-	try: incoming = json.loads( incoming )
-	except json.JSONDecodeError: return JSON_DECODE_ERR
+def generate_success_command( jobs : list | None, message : str ) -> str:
+	return {'success' : True, 'jobs' : jobs, 'message' : message }
 
-	try: turtle_id = int( incoming['turtle_id'], 2 )
-	except KeyError: return TURTLE_ID_ERR
+class BaseWebSocket:
 
-	if not is_turtle_id( turtle_id ):
-		return generate_closing_command('No such turtle id exists.')
+	def __init__(self, ip='127.0.0.1', port=5757):
+		self.ip = ip
+		self.port = port
 
-	print("Turtle Request: ", incoming)
-	try:
-		handle_turtle_request( ws, turtle_id, incoming )
-	except Exception as exception:
-		print("An internal server error occured.")
-		print(traceback.format_exception(exception))
+	async def handle_request( self, ws : WebSocketServerProtocol  ) -> None:
+		'''
+		Handle incoming requests.
 
-# handle requests until the connection is closed!
-def handle_connection(ws : ServerConnection) -> None:
-	while True:
+		You must override this method otherwise it will raise a NotImplementedError.
+		'''
+		raise NotImplementedError
+
+	async def _internal_start( self ) -> None:
+		async with serve(self.handle_request, self.ip, self.port, compression=None):
+			await asyncio.Future()
+
+	def start( self ) -> None:
+		asyncio.run(self._internal_start())
+
+class CCTurtleHost(BaseWebSocket):
+
+	async def handle_turtle_request( self, ws : WebSocketServerProtocol, data : dict ) -> None:
+		print(data)
+
+		# find the request's job
+		job : str = data.get('job')
+		if job == None: return JOB_ID_ERR
+
+		if job == "turtle_create": return generate_success_command( None, await create_turtle_instance() )
+		if job == "turtle_kill": return generate_close_command('The turtle has been slain.')
+
+		# find the turtle id
+		turtle_id : str = data.get('turtle_id')
+		if turtle_id == None: return TURTLE_ID_ERR
+
+		if not await is_turtle_id( turtle_id ): return generate_close_command('No such turtle exists.')
+
+		if job == 'turtle_get_jobs': return await get_turtle_jobs( ws, turtle_id, data )
+		if job == "turtle_set_results": return await put_turtle_results( ws, turtle_id, data )
+
+		return generate_fail_command('No such job exists: ' + str(job))
+
+	async def handle_request( self, ws : WebSocketServerProtocol  ) -> None:
+		'''
+		Handle incoming requests.
+		'''
+		incoming : str = await ws.recv()
+		try: data = json.loads( incoming )
+		except json.JSONDecodeError:
+			await ws.send( generate_fail_command( JSON_DECODE_ERR ) )
+			return
+
 		try:
-			incoming = ws.recv(timeout=None)
-			if type(incoming) == bytes: incoming = incoming.decode('utf-8')
-			handle_request(ws, incoming)
-		except ConnectionClosed:
-			print(f'[{ round( time(), 2 ) }] Turtle connection is closed, ending handle connection loop.')
-			break
+			response = await self.handle_turtle_request( ws, data )
 		except Exception as exception:
-			print(f'An exception occured: { traceback.format_exception( exception ) }')
-			break
+			print("An error occured:")
+			print( traceback.format_exception(exception) )
+			response = generate_fail_command( 'A core server error occured.' )
+		await ws.send( json.dumps(response) )
 
-print("Setting up Websocket")
-ws_server = serve(handle_connection, '127.0.0.1', 5757, compression=None)
-serverThread = threading.Thread(target=ws_server.serve_forever, group=None)
-serverThread.start()
-
-print("Websocket Server Started!")
-while True:
-	try:
-		sleep(0.1)
-	except KeyboardInterrupt:
-		break
-	except Exception as exception:
-		print(exception)
+host = CCTurtleHost()
+host.start()
