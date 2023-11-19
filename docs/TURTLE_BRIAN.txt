@@ -1,8 +1,8 @@
 
 starting operation:
 -------------------
-- refuel with coal / coal block
-- check how much fuel turtle has; if not past a threashold (8 coal), ask for more.
+- refuel (coal block)
+- check how much fuel turtle has; if not past a threashold (100 blocks?), ask for more.
 - check for crafting table in inventory OR equipped left/right
 
 logic thought processes:
@@ -15,7 +15,7 @@ logic thought processes:
 
 objectives:
 -----------
-1 (CRITICAL FUEL): FUEL
+1 (CRITICAL FUEL): FUEL (get past 1k blocks?)
 	- log
 	- coal
 
@@ -26,12 +26,16 @@ objectives:
 	- crafting table (1 log -> 4 planks)
 	- chest (2 logs -> 8 planks)
 
+2.1: FARMING wood
+	- farm 2 stacks of wood (1.5 stacks total)
+
 3: PROGRESSION RESOURCES
 	- iron ore
 	- coal ore
 	- gold ore
 	- diamond ore
 	- redstone ore
+	- BUCKET -> LAVA -> 1000 BLOCKS / LAVA (so find a lava pool and eat it up)
 
 4: TURTLE RESOURCES AND REPLICATION
 	- sand -> glass -> glass pane

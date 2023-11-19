@@ -17,17 +17,37 @@ INITIAL_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
 
 )
 
+# goal is to find trees / wood to eat
+# NOTE: if has sapling in inventory, find dirt, plant and wait for a tree,
+# destroy the tree and get saplings, repeat.
+# TODO: find trees/shipwrecks/anything of WOOD / PLANKS kind.
+FIND_WOOD_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
+
+)
+
+# achieve a craft recipe
+# TODO: check turtle state to see what recipe is to being crafted,
+# clear inventory into ground/chest and craft the item then suck the items back up.
+ACHIEVE_CRAFT_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
+
+)
+
 # what to do when turtle starts mining
 # TODO: needs scheme to find coal, upgrade tools, and finally reproduce.
 MINING_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
 
 )
 
-# TODO: scheme to find wood and surface resources
+# TODO: scheme to find wood (as second priority) and sand
 SURFACE_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
 	TreeNodeFactory.condition_truefalse_node(
 
 	)
+)
+
+# TODO: map around the current area
+MAP_AREA_OUT_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
+
 )
 
 # NOTE:
