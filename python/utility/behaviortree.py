@@ -1,8 +1,6 @@
 
 from __future__ import annotations
 
-# import json
-
 from copy import deepcopy
 from dataclasses import dataclass, field
 from random import randint
@@ -19,12 +17,6 @@ def array_find( array : list, value : Any ) -> int:
 		return array.index(value)
 	except:
 		return -1
-
-# def deepcopy( value : dict | list ) -> dict | list:
-# 	'''
-# 	Deep copy the passed list or dictionary.
-# 	'''
-# 	return json.loads( json.dumps( value ) )
 
 class NodeEnums(Enum):
 	Action = 0
@@ -255,7 +247,7 @@ class BaseBehaviorTree:
 			index : int = array_find( self._sequencersCache, sequencer )
 
 	def await_sequencer_complete( self, sequencer : BaseSequenceItem, interval : float | int = 1/60 ) -> None:
-		while seq_item.isUpdating: sleep(interval)
+		while sequencer.isUpdating: sleep(interval)
 
 	def find_root_node( self ) -> Any:
 		'''
@@ -390,6 +382,7 @@ class BehaviorTreeBuilder:
 		# return a new behavior tree
 		return BaseBehaviorTree(nodes=nodeArray)
 
+# tests
 if __name__ == '__main__':
 
 	from time import sleep

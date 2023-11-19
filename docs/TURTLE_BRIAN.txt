@@ -1,0 +1,93 @@
+
+starting operation:
+-------------------
+- refuel with coal / coal block
+- check how much fuel turtle has; if not past a threashold (8 coal), ask for more.
+- check for crafting table in inventory OR equipped left/right
+
+logic thought processes:
+------------------------
+- check if there is enough fuel to get new fuel
+- check if there is enough resources to get out of the ground
+- check if there is enough fuel to swap Y-levels (coal -> iron -> diamond -> coal)
+
+- clear inventory of useless stuff
+
+objectives:
+-----------
+1 (CRITICAL FUEL): FUEL
+	- log
+	- coal
+
+2: CORE RESOURCES
+	- log
+	- dirt & sapling (infinite wood)
+	- coal (fuel for self and new turtles)
+	- crafting table (1 log -> 4 planks)
+	- chest (2 logs -> 8 planks)
+
+3: PROGRESSION RESOURCES
+	- iron ore
+	- coal ore
+	- gold ore
+	- diamond ore
+	- redstone ore
+
+4: TURTLE RESOURCES AND REPLICATION
+	- sand -> glass -> glass pane
+	- logs -> planks -> chest
+	- cobblestone & coal -> cobblestone + furnace + coal -> stone
+	- redstone
+	- ink sac / wither rose
+	- sugar cane
+	> replicate when available
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[NOT POSSIBLE BUT KEPT INCASE IT BECOMES POSSIBLE!]
+
+5: NETHER
+
+
+6: END
+
+CRYSTALS:
+- REQUIRES 2 ANVILS FOR ONE TURTLE TO DO ALL CRYSTALS
+- 10 BLOCKS UP AND PLACE ANVIL AND LET IT DROP ON CRYSTAL (4 uses? / anvil)
+
+DRAGON:
+- 1 BLOCKS UNDER FROM OBSIDIAN PORCH PILLAR AND ENDLESSLY ATTACK
+- if no dragon appears (no attack) for 3 minutes above it, assume it died
+
+
+
+
+-- REQUIRES 2 ANVILS FOR ALL END CRYSTALS
+-- now standing infront of bedrock under crystal
+-- place anvil above
+turtle.refuel()
+turtle.back()
+for i = 1, 10 do
+	turtle.up()
+end
+turtle.forward()
+turtle.select(2)
+turtle.place()
+sleep(2)
+for i = 1, 9 do
+	turtle.down()
+end
+turtle.dig('left')
+-- find next crystal

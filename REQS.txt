@@ -1,9 +1,0 @@
-MINECRAFT:
-✔️ Get inventory
-✔️ Figure out the compass direction
-
-❌ Parse commands via the enum table
-❌ Operation status
-
-PYTHON:
-❌ Python backend for running the 'hive' of turtles.

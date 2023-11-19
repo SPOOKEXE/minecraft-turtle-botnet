@@ -1,23 +1,40 @@
 
 import json
 
-from dataclasses import field
 from threading import Thread
 from time import sleep
 from uuid import uuid4
 from websockets.sync.server import ServerConnection
 
+from .consts.minecraft import ( Turtle, World )
+from .utility.behaviortree import ( BehaviorTreeNode, TreeNodeFactory, BaseSequenceItem, BaseBehaviorTree, BehaviorTreeBuilder )
+
 active_turtles = { }
 
-class Turtle:
+# what to do when turtle FIRST loads EVER
+# TODO: check fuel requirements (and crafting table requirement?)
+INITIAL_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
 
-	def __init__(self):
-		self.job_queue = []
-		self.active_jobs = []
-		self.is_busy = False
+)
 
-		self.results = None
-		self.results_ready = False
+# what to do when turtle starts mining
+# TODO: needs scheme to find coal, upgrade tools, and finally reproduce.
+MINING_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
+
+)
+
+# TODO: scheme to find wood and surface resources
+SURFACE_BEHAVIOR_TREE = BehaviorTreeBuilder.build_from_nested_dict(
+	TreeNodeFactory.condition_truefalse_node(
+
+	)
+)
+
+# NOTE:
+# - get wood first
+# - go mining and get iron/diamond tools
+# - go surface and get materials to reproduce (or otherwise go mining for fuel / resources again)
+# - finally reproduce and repeat the cycle
 
 # is turtle id
 async def is_turtle_id( turtle_id : str ) -> bool:
@@ -75,6 +92,7 @@ def behavior_tree_loop( ) -> None:
 				turtle.is_busy = False
 				turtle.results = []
 				turtle.results_ready = False
+
 		sleep(0.1)
 
 Thread(target=behavior_tree_loop).start()
