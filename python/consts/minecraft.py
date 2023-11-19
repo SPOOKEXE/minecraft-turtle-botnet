@@ -4,7 +4,7 @@ import os
 
 from utility.behaviortree import BaseSequenceItem
 
-class Turtle:
+class Turtle(BaseSequenceItem):
 	x : int
 	y : int
 	z : int
@@ -14,7 +14,6 @@ class Turtle:
 	is_busy : bool
 	results_ready : bool
 	results : list | None
-	sequencer : BaseSequenceItem | None
 
 	def __init__( self ):
 		self.x = self.y = self.z = 0

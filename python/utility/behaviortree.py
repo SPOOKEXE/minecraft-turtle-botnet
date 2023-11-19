@@ -101,6 +101,7 @@ class BaseBehaviorTree:
 	_sequencersCache : list[BaseSequenceItem]
 
 	autoUpdaterEnabled : bool = False
+	data : Any | None = None
 
 	def __init__( self, nodes : list[BehaviorTreeNode] | None = None ) -> BaseBehaviorTree:
 		if nodes != None: self.nodes = nodes
