@@ -13,6 +13,7 @@ class Turtle:
 
 	def __init__(self):
 		self.job_queue = []
+		self.active_jobs = []
 		self.is_busy = False
 
 		self.results = None
@@ -32,24 +33,22 @@ async def create_turtle_instance( ) -> str:
 
 async def get_turtle_jobs( ws : ServerConnection, turtle_id : str, data : dict ) -> dict:
 	global active_turtles
-
 	turtle : Turtle = active_turtles[turtle_id]
-	if len(turtle.job_queue) > 0:
-		queue_temp = turtle.job_queue
+	print( turtle.active_jobs )
+	if len(turtle.active_jobs) == 0:
+		if len(turtle.job_queue) == 0:
+			return { 'success' : True, 'jobs' : None, 'message' : 'Turtle has no jobs in queue.' }
+		turtle.active_jobs = turtle.job_queue
 		turtle.job_queue = []
-		# if it isnt busy currently, reset the results
-		if not turtle.is_busy:
-			turtle.results = None
-			turtle.results_ready = False
 		turtle.is_busy = True
-		return { 'success' : True, 'jobs' : queue_temp, 'message' : 'Queued items have been returned.' }
-	return { 'success' : True, 'jobs' : None, 'message' : turtle.is_busy and 'Turtle is currently busy.' or 'No jobs to complete at the moment.' }
+	return { 'success' : True, 'jobs' : turtle.active_jobs, 'message' : 'Queued items have been returned.' }
 
 async def put_turtle_results( ws : ServerConnection, turtle_id : str, data : dict ) -> dict:
 	global active_turtles
 	# get the turtle
 	turtle : Turtle = active_turtles[turtle_id]
 	# put results
+	print( turtle.results )
 	turtle.results = data.get('results')
 	turtle.results_ready = True
 	return { 'success' : True, 'jobs' : None, 'message' : 'Results have been saved. Repeat call_jobs until there are new jobs available.' }
@@ -62,8 +61,10 @@ def behavior_tree_loop( ) -> None:
 
 			# new job which is to get fuel level
 			if not turtle.is_busy:
-				turtle.job_queue.append(['getFuelLevel'])
-				turtle.is_busy = True
+				turtle.results = None
+				turtle.results_ready = False
+				if len(turtle.job_queue) == 0:
+					turtle.job_queue.append(['getFuelLevel'])
 				continue
 
 			# await results
@@ -72,6 +73,8 @@ def behavior_tree_loop( ) -> None:
 					continue
 				print( uid, turtle.results )
 				turtle.is_busy = False
+				turtle.results = []
+				turtle.results_ready = False
 		sleep(0.1)
 
 Thread(target=behavior_tree_loop).start()

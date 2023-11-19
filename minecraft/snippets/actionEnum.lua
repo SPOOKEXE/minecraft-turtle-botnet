@@ -70,17 +70,13 @@ local ActionEnum = {
 }
 
 local function parseEnum( enumName, ... )
-	if ActionEnum[ enumName ] then
-		isTurtleBusy = true
-
-		local returns = { pcall( ActionEnum[ enumName ], ... ) }
-		local success = table.remove(returns, 1)
-		if not success then
-			warn( tostring(returns[1]) )
-		end
-
-		isTurtleBusy = false
-		return table.unpack(returns)
+	if not ActionEnum[ enumName ] then
+		return nil
 	end
-	return nil
+	isTurtleBusy = true
+	local returns = { pcall( ActionEnum[ enumName ], ... ) }
+	local success = table.remove(returns, 1)
+	if not success then print( tostring(returns[1]) ) end
+	isTurtleBusy = false
+	return table.unpack(returns)
 end
