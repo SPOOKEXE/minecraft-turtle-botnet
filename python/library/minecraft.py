@@ -133,6 +133,7 @@ class Turtle(Block, Inventory, BaseModel):
 
 class World(BaseModel):
 	uid : str = uuid4().hex
+	unique_blocks : list[str] = list()
 	block_cache : dict = dict()
 	turtle_ids : list[str] = list()
 	turtles_map : dict[str, Turtle] = dict()
@@ -148,32 +149,58 @@ class WorldAPI:
 		turtle = Turtle(position=position, direction=direction)
 		world.turtle_ids.append(turtle.uid)
 		world.turtles_map[turtle.uid] = turtle
-		# WorldAPI.push_block( world, position, turtle )
+		WorldAPI.push_block( world, position, turtle )
 		return turtle
 
 	@staticmethod
 	def destroy_turtle( world : World, turtle_id : str ) -> None:
+		idx = array_find( world.turtle_ids, turtle_id )
+		if idx == -1: return
+		world.turtle_ids.pop(idx)
+
+	@staticmethod
+	def get_turtle_jobs( world : World, turtle_id : str ) -> list:
+		turtle : Turtle = world.turtles_map.get(turtle_id)
+		if turtle == None: return [ ]
 		raise NotImplementedError
 
 	@staticmethod
-	def get_turtle_jobs( turtle_id : str ) -> list:
-		raise NotImplementedError
+	def put_turtle_results( world : World, turtle_id : str, tracker_id : str, data : list ) -> None:
+		turtle : Turtle = world.turtles_map.get(turtle_id)
+		if turtle == None: return
+		turtle.tracker_results[tracker_id] = data
 
 	@staticmethod
-	def put_turtle_results( turtle_id : str, data : list ) -> None:
-		pass
-
-	@staticmethod
-	def update_behavior_trees( ) -> None:
+	def update_behavior_trees( world : World ) -> None:
 		raise NotImplementedError
 
 	@staticmethod
 	def push_block( world : World, position : Point3, block : Block ) -> bool:
-		raise NotImplementedError
+		# cache unique block names
+		index = array_find(world.unique_blocks, block.name)
+		if index == -1:
+			world.unique_blocks.append( [block.uid, block.name] )
+			index = len(world.unique_blocks)
+		x = str(position.x)
+		z = str(position.z)
+		y = str(position.y)
+		if world.block_cache.get(x) == None:
+			world.block_cache[x] = { }
+		if world.block_cache.get(x).get(z) == None:
+			world.block_cache[x][z] = { }
+		world.block_cache[x][z][y] = index
 
 	@staticmethod
-	def pop_block( world : World, position : Point3 ) -> bool:
-		raise NotImplementedError
+	def pop_block( world : World, position : Point3 ) -> None:
+		x = str(position.x)
+		z = str(position.z)
+		y = str(position.y)
+		if world.block_cache.get(x) == None:
+			return
+		if world.block_cache.get(x).get(z) == None:
+			return
+		try: world.block_cache.get(x).get(z).pop(y)
+		except: pass
 
 	@staticmethod
 	def pathfind_to( world : World, turtle : Turtle, target : Point3 | Block ) -> tuple[bool, list]:
@@ -181,4 +208,11 @@ class WorldAPI:
 		target : Point3 = target
 
 		# A* pathfinding / other method (such as directly going there)
+		raise NotImplementedError
+
+	@staticmethod
+	def find_estimated_path( world : World, target : Point3 | Block ) -> tuple[bool, list]:
+		if type(target) == Block: target = target.position
+		target : Point3 = target
+
 		raise NotImplementedError
