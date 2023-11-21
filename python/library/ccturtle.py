@@ -1,23 +1,33 @@
 
-import pickle
-
-from typing import Any
-from dataclasses import dataclass
 from uuid import uuid4
 from time import sleep, time
-from typing import Any, Callable
 from uuid import uuid4
 from time import sleep
 
-from library.minecraft import Block, Chest, Furnace, Item, Point3, World, Inventory, Turtle, TurtleActions, Turtle, WorldAPI
-from library.websocks import BaseWebSocket, construct_response
+from library.minecraft import Point3, World, Turtle, Turtle, WorldAPI
 from library.behaviortree import BaseBehaviorTree, BaseSequenceItem, BehaviorTreeBuilder, BehaviorTreeNode, TreeNodeFactory
 
 class TurtleAPI:
 
 	@staticmethod
 	def create_turtle_instance( world : World, position : Point3, direction : str ) -> str:
-		return WorldAPI.create_new_turtle( world, position=position, direction=direction )
+		return WorldAPI.create_new_turtle( world, position=position, direction=direction ).uid
+
+	@staticmethod
+	def does_turtle_exist( world : World, turtle_id : str ) -> bool:
+		return WorldAPI.does_turtle_exist( world, turtle_id )
+
+	@staticmethod
+	def destroy_turtle( world : World, turtle_id : str ) -> None:
+		return WorldAPI.destroy_turtle( world, turtle_id )
+
+	@staticmethod
+	def get_turtle_jobs( world : World, turtle_id : str ) -> list:
+		raise NotImplementedError
+
+	@staticmethod
+	def put_turtle_results( world : World, turtle_id : str, results : list ) -> None:
+		raise NotImplementedError
 
 	@staticmethod
 	def send_tracked_jobs( turtle : Turtle, jobs : list[ list ] ) -> str:

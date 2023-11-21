@@ -32,7 +32,7 @@ class Inventory(BaseModel):
 
 # block of any kind
 class Block(BaseModel):
-	uid : str = lambda _ : uuid4().hex
+	uid : str = uuid4().hex
 	name : str = "minecraft:air"
 	position : Point3 = Point3()
 
@@ -115,7 +115,7 @@ class TurtleActions(Enum):
 	isBusy = 83
 
 class Turtle(Block, Inventory, BaseModel):
-	uid : str = lambda _ : uuid4().hex
+	uid : str = uuid4().hex
 	name : str = "computercraft:crafty_turtle"
 	label : str = "Unknown"
 	selectedSlot : int = 1
@@ -132,7 +132,7 @@ class Turtle(Block, Inventory, BaseModel):
 	active_jobs : list = list()
 
 class World(BaseModel):
-	uid : str = lambda _ : uuid4().hex
+	uid : str = uuid4().hex
 	block_cache : dict = dict()
 	turtle_ids : list[str] = list()
 	turtles_map : dict[str, Turtle] = dict()
@@ -140,23 +140,27 @@ class World(BaseModel):
 class WorldAPI:
 
 	@staticmethod
-	def does_turtle_id_exist( world : World, turtle_id : str ) -> bool:
+	def does_turtle_exist( world : World, turtle_id : str ) -> bool:
 		return array_find( world.turtle_ids, turtle_id ) != -1
 
 	@staticmethod
-	def create_new_turtle( world : World, position : Point3, direction : str ) -> str:
+	def create_new_turtle( world : World, position : Point3, direction : str ) -> Turtle:
 		turtle = Turtle(position=position, direction=direction)
 		world.turtle_ids.append(turtle.uid)
 		world.turtles_map[turtle.uid] = turtle
-		WorldAPI.push_block( world, position, turtle )
-		return turtle.uid
+		# WorldAPI.push_block( world, position, turtle )
+		return turtle
 
 	@staticmethod
-	def get_turtle_jobs( turtle_id : str, data : dict ) -> dict:
+	def destroy_turtle( world : World, turtle_id : str ) -> None:
 		raise NotImplementedError
 
 	@staticmethod
-	def put_turtle_results( turtle_id : str, data : dict ) -> list:
+	def get_turtle_jobs( turtle_id : str ) -> list:
+		raise NotImplementedError
+
+	@staticmethod
+	def put_turtle_results( turtle_id : str, data : list ) -> None:
 		pass
 
 	@staticmethod

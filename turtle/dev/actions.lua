@@ -185,4 +185,6 @@ local function parseEnum( enumName, ... )
 	return success, table.unpack(returns)
 end
 
-return { parseEnum = parseEnum, ActionEnum = ActionEnum }
+local actions = { parseEnum = parseEnum, ActionEnum = ActionEnum }
+
+return actions

@@ -6,6 +6,7 @@ from typing import Any
 
 from library.websocks import BaseWebSocket
 from library.ccturtle import TurtleAPI, BehaviorTrees
+from library.minecraft import Point3, World
 from websockets.server import WebSocketServerProtocol
 
 def dump_json2( value : dict | list ) -> str:
@@ -21,10 +22,11 @@ def construct_response( success : bool = True, data : dict | list | Any = None, 
 
 class CCTurtleHost(BaseWebSocket):
 
-	# TODO: set world here?
+	world : World
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, world : World, *args, **kwargs):
 		super().__init__(*args, **kwargs)
+		self.world = world
 
 	async def handle_turtle_request( self, ws : WebSocketServerProtocol, data : dict ) -> dict:
 		print(data)
@@ -33,32 +35,44 @@ class CCTurtleHost(BaseWebSocket):
 		if job == None:
 			return construct_response(success=False, message="JSON data does not include the 'job' key.")
 
-		if job == "turtle_create":
-			tid = await create_turtle_instance()
-			return construct_response(data = tid)
+		if job == "create_turtle":
+			xyz_cords = data.get('xyz')
+			if type(xyz_cords) != list or len(xyz_cords) != 3:
+				return construct_response(success=False, message='Invalid XYZ coordinates.')
+
+			direction = data.get('direction')
+			if type(direction) != str or (direction != 'north' and direction != 'south' and direction != 'east' and direction != 'west'):
+				return construct_response(success=False, message='Invalid facing direction.')
+
+			tid = TurtleAPI.create_turtle_instance(
+				world = self.world,
+				position = Point3(x=xyz_cords[0], y=xyz_cords[1], z=xyz_cords[2]),
+				direction = direction
+			)
+			return construct_response(data = tid, message='Created a new turtle.')
 
 		# find the turtle id
 		turtle_id : str = data.get('turtle_id')
 		if turtle_id == None:
 			return construct_response(success=False, message="Must include the 'turtle_id' in the json data")
 
-		if not await is_turtle_id( turtle_id ):
+		if not TurtleAPI.does_turtle_exist( world, turtle_id ):
 			return construct_response(success=False, jobs=['close'], message='No such turtle exists.')
 
 		if job == "turtle_destroy":
-			await destroy_turtle_instance( turtle_id )
+			TurtleAPI.destroy_turtle( world, turtle_id )
 			return construct_response(message='The turtle has been slain.')
 
 		if job == 'turtle_get_jobs':
-			job_queue = await get_turtle_jobs( ws, turtle_id, data )
-			return construct_response(data = job_queue, message=None)
+			job_queue = TurtleAPI.get_turtle_jobs( world, turtle_id )
+			return construct_response(data=job_queue, message=None)
 
 		inner_data : dict | list | Any | None = data.get('data')
 
 		if job == "turtle_set_results":
 			if inner_data == None:
 				return construct_response(success=False, message='The results were not included.')
-			await put_turtle_results( ws, turtle_id, data )
+			TurtleAPI.put_turtle_results( world, turtle_id, inner_data )
 			return construct_response(message='The results were appended.')
 
 		return construct_response(success=False, message='Job does not exist.')
@@ -81,7 +95,10 @@ class CCTurtleHost(BaseWebSocket):
 			print("An error occured:")
 			print( traceback.format_exception(exception) )
 			response = construct_response(success=False, message='An internal server error occured.')
+		print(response)
 		await ws.send( dump_json2(response) )
 
-# socket = CCTurtleHost()
-# world = World()
+world = World()
+
+socket = CCTurtleHost(world=world)
+socket.start()

@@ -7,6 +7,11 @@ local turtle_id = utility.InitializeTurtle()
 while true do
 	-- get queued jobs
 	local queued_jobs = utility.GetQueuedJobs(turtle_id)
+	if queued_jobs == nil or queued_jobs.success == false then
+		print('Server errored - killed turtle.')
+		break
+	end
+
 	local tracker_id = queued_jobs['tracker_id']
 	local jobs_list = queued_jobs['data']
 	--[[
