@@ -35,13 +35,16 @@ class Block(BaseModel):
 	uid : str = uuid4().hex
 	name : str = "minecraft:air"
 	position : Point3 = Point3()
+	traversible : bool = True
 
 # blocks
 class Chest(Block, Inventory, BaseModel):
 	name : str = "minecraft:chest"
+	traversible : bool = False
 
 class Furnace(Block, Inventory, BaseModel):
 	name : str = "minecraft:furnace"
+	traversible : bool = False
 
 # turtle
 class TurtleActions(Enum):
@@ -122,6 +125,7 @@ class Turtle(Block, Inventory, BaseModel):
 	fuel : int = 0
 	position : Point3 = Point3()
 	direction : Direction = Direction.north
+	traversible : bool = False
 
 	inventory : Inventory = list()
 	left_hand : Item = None
@@ -135,8 +139,11 @@ class World(BaseModel):
 	uid : str = uuid4().hex
 	unique_blocks : list[str] = list()
 	block_cache : dict = dict()
+
 	turtle_ids : list[str] = list()
 	turtles_map : dict[str, Turtle] = dict()
+
+	pathfind_cache : dict[str, list] = dict()
 
 class WorldAPI:
 
@@ -171,8 +178,15 @@ class WorldAPI:
 		turtle.tracker_results[tracker_id] = data
 
 	@staticmethod
-	def update_behavior_trees( world : World ) -> None:
-		raise NotImplementedError
+	def get_block( world : World, position : Point3 ) -> Block | None:
+		x = str(position.x)
+		z = str(position.z)
+		y = str(position.y)
+		if world.block_cache.get(x) == None:
+			return None
+		if world.block_cache.get(x).get(z) == None:
+			return None
+		return world.block_cache[x][z].get(y)
 
 	@staticmethod
 	def push_block( world : World, position : Point3, block : Block ) -> bool:
@@ -203,16 +217,97 @@ class WorldAPI:
 		except: pass
 
 	@staticmethod
-	def pathfind_to( world : World, turtle : Turtle, target : Point3 | Block ) -> tuple[bool, list]:
-		if type(target) == Block: target = target.position
-		target : Point3 = target
+	def pathfind2d_to( world : World, start : Point3, goal : Point3 ) -> tuple[bool, list]:
+		'''
+		Pathfind on the X/Z axis ONLY.
+		'''
+		pass
 
+	@staticmethod
+	def get_block_neighbours( world : World, source : Point3, allow_diagonals : bool = True, allow_vertical : bool = True, filter_traversible : bool = True ) -> list[Block]:
+
+		leftPlane = source.x - 1
+		rightPlane = source.x + 1
+		forwardPlane = source.z + 1
+		backwardPlane = source.z - 1
+		upAxis = source.y + 1
+		downAxis = source.y - 1
+
+		def checkNodePath( x : int, z : int, y : int ) -> Block:
+			nonlocal world
+			position : Point3 = Point3(x=x, y=y, z=z)
+			block = WorldAPI.get_block( world, position )
+			return block == None and Block(position=position) or block
+
+		neighbour_nodes = [
+			checkNodePath( leftPlane, source.z, source.y ), # left-middle-middle
+			checkNodePath( rightPlane, source.z, source.y ), # right-middle-middle
+			checkNodePath( source.x, forwardPlane, source.y ), # middle-forward-middle
+			checkNodePath( source.x, backwardPlane, source.y ), # middle-forward
+		]
+
+		if allow_vertical:
+			neighbour_nodes.extend([
+				checkNodePath( source.x, source.z, upAxis ), # top-middle
+				checkNodePath( source.x, source.z, downAxis ) # bottom-middle
+			])
+
+		if allow_diagonals:
+			neighbour_nodes.extend([
+				checkNodePath(leftPlane, forwardPlane, source.y),
+				checkNodePath(leftPlane, backwardPlane, source.y),
+				checkNodePath(rightPlane, forwardPlane, source.y),
+				checkNodePath(rightPlane, backwardPlane, source.y),
+			])
+
+		if allow_vertical and allow_diagonals:
+			neighbour_nodes.extend([
+				checkNodePath(leftPlane, forwardPlane, upAxis),
+				checkNodePath(leftPlane, forwardPlane, downAxis),
+				checkNodePath(leftPlane, source.z, upAxis),
+				checkNodePath(leftPlane, source.z, downAxis),
+				checkNodePath(leftPlane, backwardPlane, upAxis),
+				checkNodePath(leftPlane, backwardPlane, downAxis),
+				checkNodePath(rightPlane, forwardPlane, upAxis),
+				checkNodePath(rightPlane, forwardPlane, downAxis),
+				checkNodePath(rightPlane, source.z, upAxis),
+				checkNodePath(rightPlane, source.z, downAxis),
+				checkNodePath(rightPlane, backwardPlane, upAxis),
+				checkNodePath(rightPlane, backwardPlane, downAxis),
+				checkNodePath(source.x, forwardPlane, upAxis),
+				checkNodePath(source.x, forwardPlane, downAxis),
+				checkNodePath(source.x, backwardPlane, upAxis),
+				checkNodePath(source.x, backwardPlane, downAxis)
+			])
+
+		reverse : int = (source.x + source.z + source.y) % 2 == 0
+		neighbours : list[Block] = []
+		for p in neighbour_nodes:
+			if filter_traversible and p.traversible == False:
+				continue
+			if reverse:
+				neighbours.insert(0, p)
+			else:
+				neighbours.append(p)
+		return neighbours
+
+	@staticmethod
+	def pathfind3d_to( world : World, start : Point3, goal : Point3 ) -> tuple[bool, list]:
+		'''
+		Pathfind on the X/Y/Z axis from the start location to the goal location.
+		'''
 		# A* pathfinding / other method (such as directly going there)
+
+		cacheindex = str(hash( str(start) + str(goal) ))
+		if world.pathfind_cache.get( cacheindex ):
+			return world.pathfind_cache.get( cacheindex )
+
 		raise NotImplementedError
 
 	@staticmethod
-	def find_estimated_path( world : World, target : Point3 | Block ) -> tuple[bool, list]:
-		if type(target) == Block: target = target.position
-		target : Point3 = target
+	def on_path_blocked( world : World, path : list[Point3], blockedIndex : int ) -> None:
+		raise NotImplementedError
 
+	@staticmethod
+	def update_behavior_trees( world : World ) -> None:
 		raise NotImplementedError

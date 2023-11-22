@@ -1,5 +1,5 @@
 
-local fs, turtle, peripheral, sleep, http, textutils
+local fs, turtle, peripheral, sleep, http, textutils, read
 
 -->> IGNORE ABOVE IN PRODUCTION <<--
 
@@ -62,6 +62,8 @@ function utility.InitializeTurtle()
 
 	-- ask for user input
 	print('Welcome to the HIVE.')
+	print('Make sure to have a COAL BLOCK and a CRAFT TABLE inside the turtle before continuing.')
+	read() -- wait for user input
 	print("We'll need two pieces of information before continuing.")
 	print()
 
