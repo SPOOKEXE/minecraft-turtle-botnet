@@ -58,5 +58,19 @@ class TurtleAPI:
 	# 	])
 	# 	return TurtleAPI.yield_tracked_results( tracker_id )
 
+class BehaviorFunctions:
+
+	# functionz
+	HAS_MINIMUM_COAL = None
+
 class BehaviorTrees:
+
+	# UNCONCIOUS ACTIONS AND BEHAVIORS
+	FIND_COAL_RESOURCE = None
+
+	# CONCIOUS ACTIONS AND BEHAVIORS
+	FIND_RESOURCE = None
+
+	# MAIN BEHAVIOR LOOPS
+
 	pass
