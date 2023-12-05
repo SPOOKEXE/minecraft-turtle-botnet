@@ -1,5 +1,6 @@
 {
 	"Lua.diagnostics.disable": [
 		"param-type-mismatch"
-	]
+	],
+	"discord.enabled": true
 }

@@ -37,14 +37,16 @@ class Block(BaseModel):
 	position : Point3 = Point3()
 	traversible : bool = True
 
-# blocks
-class Chest(Block, Inventory, BaseModel):
-	name : str = "minecraft:chest"
+# untraversible lbock
+class SolidBlock(Block):
 	traversible : bool = False
 
-class Furnace(Block, Inventory, BaseModel):
+# blocks
+class Chest(SolidBlock, Inventory, BaseModel):
+	name : str = "minecraft:chest"
+
+class Furnace(SolidBlock, Inventory, BaseModel):
 	name : str = "minecraft:furnace"
-	traversible : bool = False
 
 # turtle
 class TurtleActions(Enum):
@@ -117,7 +119,7 @@ class TurtleActions(Enum):
 	procreate = 82
 	isBusy = 83
 
-class Turtle(Block, Inventory, BaseModel):
+class Turtle(SolidBlock, Inventory, BaseModel):
 	uid : str = uuid4().hex
 	name : str = "computercraft:crafty_turtle"
 	label : str = "Unknown"
@@ -125,7 +127,6 @@ class Turtle(Block, Inventory, BaseModel):
 	fuel : int = 0
 	position : Point3 = Point3()
 	direction : Direction = Direction.north
-	traversible : bool = False
 
 	inventory : Inventory = list()
 	left_hand : Item = None
@@ -209,10 +210,8 @@ class WorldAPI:
 		x = str(position.x)
 		z = str(position.z)
 		y = str(position.y)
-		if world.block_cache.get(x) == None:
-			return
-		if world.block_cache.get(x).get(z) == None:
-			return
+		if world.block_cache.get(x) == None: return
+		if world.block_cache.get(x).get(z) == None: return
 		try: world.block_cache.get(x).get(z).pop(y)
 		except: pass
 

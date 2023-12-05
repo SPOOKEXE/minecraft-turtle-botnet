@@ -1,5 +1,5 @@
 
-# Survival Crafty Turtle
+# CC Turtle Botnet - Crafty Turtle
 
 - connect to turtles in computercraft via websocket
 - communicate commands to the turtles and receive feedback from them.
