@@ -1,9 +1,4 @@
 
-# TODO:
-# - make it so you can link a behavior tree inside another one
-# - (when mining sequence ends -> go to checking fuel -> go to checking materials -> priority to create turtle)
-
-
 from __future__ import annotations
 
 import traceback
@@ -120,7 +115,7 @@ class BaseSequenceItem:
 	conditionAutoParams : list[Any] = field(default_factory=list)
 	functionAutoParams : list[Any] = field(default_factory=list)
 	isUpdating : bool = False
-	data : Any | None = None
+	data : dict | None = None
 
 	wrapToRoot : bool = True
 	isCompleted : bool = False

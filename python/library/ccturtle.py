@@ -7,7 +7,7 @@ from uuid import uuid4
 from time import sleep
 
 from library.minecraft import Point3, World, Turtle, TurtleActions, WorldAPI
-from library.behaviortree import BehaviorTreeBuilder, BaseSequenceItem, TreeNodeFactory
+from library.behaviortree import BaseBehaviorTree, BehaviorTreeBuilder, BaseSequenceItem, TreeNodeFactory
 from library.recipes import RECIPES, resolve_multi_tree, resolve_recipe_tree
 
 class TurtleAPI:
@@ -64,23 +64,28 @@ def increment_dictionary( cache : dict, index : str, amount : int ) -> None:
 	try: cache[index] += amount
 	except: cache[index] = amount
 
-class CONSTANTS:
-
-	# https://minecraft.fandom.com/wiki/Ore
-	COAL_Y_HEIGHT = 44
-	LAPIS_Y_HEIGHT = -1
-	IRON_Y_HEIGHT = 15
-	REDSTONE_Y_HEIGHT = -59
+# https://minecraft.fandom.com/wiki/Ore
+ORE_LEVEL_CONSTANTS = {
+	'minecraft:coal_ore' : 44,
+	'minecraft:lapis_ore' : -1,
+	'minecraft:iron_ore' : 15,
+	'minecraft:redstone_ore' : -59
+}
 
 class BehaviorFunctions:
 
-	# does the turtle have the items in its inventory / equipped?
-	def HAS_ITEMS_IN_INVENTORY( turtle : Turtle, items : list[tuple[str, int]] ) -> bool:
-		# map the inventory
+	# count the amount of a specific item in the inventory
+	def COUNT_INVENTORY_ITEMS( turtle : Turtle ) -> dict:
 		inventory_mapping = {}
 		for (item_id, amount) in turtle.inventory: increment_dictionary( inventory_mapping, item_id, amount )
 		if turtle.left_hand != None: increment_dictionary( inventory_mapping, turtle.left_hand.name, turtle.left_hand.quantity )
 		if turtle.right_hand != None: increment_dictionary( inventory_mapping, turtle.right_hand.name, turtle.right_hand.quantity )
+		return inventory_mapping
+
+	# does the turtle have the items in its inventory / equipped?
+	def HAS_ITEMS_IN_INVENTORY( turtle : Turtle, items : list[tuple[str, int]] ) -> bool:
+		# map the inventory
+		inventory_mapping = BehaviorFunctions.COUNT_INVENTORY_ITEMS( turtle )
 		# check requirements
 		for (item_id, amount) in items:
 			if inventory_mapping.get(item_id) == None or inventory_mapping.get(item_id) < amount:
@@ -89,7 +94,7 @@ class BehaviorFunctions:
 		return True
 
 	# is the turtle a brand new one?
-	def IS_BRAND_NEW_TURTLE( _, __, world : World, turtle : Turtle ) -> bool:
+	def IS_BRAND_NEW_TURTLE( world : World, turtle : Turtle ) -> bool:
 		return WorldAPI.does_turtle_exist( world, turtle.uid ) # is the turtle a new turtle?
 
 	# does the turtle have the minimum requirements?
@@ -106,69 +111,178 @@ class BehaviorFunctions:
 		return True
 
 	# post 'HAS_ABOVE_MINIMUM_COAL' to determine when to search for fuel again
-	def HAS_LOW_FUEL( _, __, ___, turtle : Turtle ) -> bool:
-		y_diff = abs(turtle.position.y - CONSTANTS.COAL_Y_HEIGHT)
+	def HAS_LOW_FUEL( turtle : Turtle ) -> bool:
+		y_diff = abs(turtle.position.y - ORE_LEVEL_CONSTANTS['minecraft:coal_ore'])
 		return (turtle.fuel - y_diff) < 100 # allows 100 blocks to find coal at the COAL_Y_HEIGHT
 
 	# set target resource
 	def SET_TARGET_ORE( seq : BaseSequenceItem, block : str, amount : int ) -> None:
-		seq.data = (block, amount)
+		seq.data['target_ore'] = (block, amount)
+
+	# get the ore resource information
+	def FIND_ORE_RESOURCE_INFO( block_id : str ) -> dict | None:
+		return ORE_LEVEL_CONSTANTS.get(block_id)
+
+	# go to Y level
+	def MINE_TO_Y_LEVEL( turtle : Turtle, y_level : int ) -> bool:
+		if y_level == turtle.position.y:
+			return True
+		if y_level < turtle.position.y:
+			jobs = [ TurtleActions.digBelow, TurtleActions.down ] * abs( y_level - turtle.position.y )
+		else:
+			jobs = [ TurtleActions.digAbove, TurtleActions.up ] * abs( y_level - turtle.position.y )
+		TurtleAPI.send_tracked_jobs(turtle, jobs)
 
 # MAIN BEHAVIOR LOOPS
-class BehaviorTrees: pass
+class BehaviorTrees:
+	BREAK_ORE_VEIN : BaseBehaviorTree
+	DIG_TUNNEL : BaseBehaviorTree
+	MINE_ORE_RESOURCE : BaseBehaviorTree
 
-BehaviorTrees.FIND_ORE_RESOURCE = BehaviorTreeBuilder.build_from_nested_dict(
-	TreeNodeFactory.condition_truefalse_node(
+	LOW_FUEL_RESOLVER : BaseBehaviorTree
 
+	# FIND_SURFACE_RESOURCE : BaseBehaviorTree
+	# FIND_UNDERGROUND_RESOURCE : BaseBehaviorTree
+	# FIND_TARGET_RESOURCE : BaseBehaviorTree
+
+	# CRAFT_TARGET_RESOURCE : BaseBehaviorTree
+	# SMELT_TARGET_RESOURCE : BaseBehaviorTree
+	# FARM_TREE_SAPLING : BaseBehaviorTree
+
+	MAIN_LOOP : BaseBehaviorTree
+	INITIALIZER : BaseBehaviorTree
+
+BehaviorTrees.BREAK_ORE_VEIN = BehaviorTreeBuilder.build_from_nested_dict(
+
+)
+BehaviorTrees.DIG_TUNNEL = BehaviorTreeBuilder.build_from_nested_dict(
+
+)
+
+def _3_condition_switch( _, __, seq : BaseSequenceItem, turtle : Turtle ) -> int:
+	if type(seq.data.get('target_ore')) != tuple:
+		return 1
+	yHeight = ORE_LEVEL_CONSTANTS.get(seq.data['target_ore'][0])
+	if yHeight == None:
+		return 2
+	seq.data['target_height'] = yHeight
+	return 3
+
+BehaviorTrees.MINE_ORE_RESOURCE = BehaviorTreeBuilder.build_from_nested_dict(
+
+	TreeNodeFactory.condition_switch_node(
+		_3_condition_switch,
+		# no target ore selected
+		TreeNodeFactory.action_node(
+			lambda _, __, ___, turtle : print(f'Turtle {turtle.uid} has no designated ore targeted: { turtle.data[0] }'),
+			None
+		),
+		# could not find the ore y-level
+		TreeNodeFactory.action_node(
+			lambda _, __, ___, turtle : print(f'Turtle {turtle.uid} has an unknown designated ore selected: { turtle.data[0] }'),
+			None
+		),
+		# ore was found, proceed with mining (go to y level first then mine)
+		TreeNodeFactory.multi_action_node(
+			[
+				# mine to the y-level of the resource
+				lambda _, seq, __, turtle : BehaviorFunctions.MINE_TO_Y_LEVEL( turtle, seq.data.get('target_height') ),
+				# mine until a certain amount of the blocks were dug or fuel is low (if its not coal being mined).
+				TreeNodeFactory.while_condition_node(
+					lambda *args : True,
+					lambda _, __, ___, ____ : None,
+					None
+				)
+			],
+			None
+		)
 	)
 )
 
-BehaviorTrees.FIND_SURFACE_RESOURCE = None # REQUIREMENT : fuel
-BehaviorTrees.FIND_UNDERGROUND_RESOURCE = None # REQUIREMENT : fuel
-BehaviorTrees.FIND_SAND_RESOURCE = None # REQUIREMENT : fuel
-BehaviorTrees.FIND_WOOD_RESOURCE = None # REQUIREMENT : fuel
+def _4_switch_condition( _, __, ___, turtle : Turtle ) -> int:
+	inventory_mapping = BehaviorFunctions.COUNT_INVENTORY_ITEMS( turtle )
+	if inventory_mapping.get('minecraft:coal') == None:
+		# no coal, go mining
+		return 3
+	if inventory_mapping.get('minecraft:coal') >= 9:
+		if inventory_mapping.get('minecraft:chest') >= 1:
+			return 2 # craft a coal block then consume it
+		return 1 # burn the coal in inventory and dont worry about crafting a coal block
+	# coal is in the inventory but its not enough so keep mining
+	return 3
 
-BehaviorTrees.FIND_TARGET_RESOURCE = None
-BehaviorTrees.CRAFT_TARGET_RESOURCE = None
-BehaviorTrees.SMELT_TARGET_RESOURCE = None
-BehaviorTrees.BREAK_ORE_VEIN = None # follow and break the block vein
-BehaviorTrees.FARM_TREE_SAPLING = None # place dirt, plant sapling, wait until grows, dig log + leaves
+BehaviorTrees.LOW_FUEL_RESOLVER = BehaviorTreeBuilder.build_from_nested_dict(
 
-# main brain loop
-BehaviorTrees.MAIN_LOOP = BehaviorTreeBuilder.build_from_nested_dict(
-	TreeNodeFactory.condition_truefalse_node(
-		BehaviorFunctions.HAS_LOW_FUEL,
-		TreeNodeFactory.hook_behavior_tree(
-			BehaviorTrees.FIND_ORE_RESOURCE,
-			lambda _, seq, __, ___ : BehaviorFunctions.SET_TARGET_ORE(seq, 'minecraft:coal_ore', 4),
-			None
-		),
-		None,
+	TreeNodeFactory.condition_switch_node(
+		_4_switch_condition,
+		[
+			# burn the coal in the inventory
+			None,
+			# craft coal blocks then burn the coal block
+			None,
+			# mine for coal then come back again
+			TreeNodeFactory.hook_behavior_tree(
+				BehaviorTrees.MINE_ORE_RESOURCE,
+				lambda _, seq, __, ___ : BehaviorFunctions.SET_TARGET_ORE(seq, 'minecraft:coal_ore', 27), # get tons of coal
+				None
+			),
+		],
 		None
 	)
+
+)
+
+# main brain loop
+def _2_switch_condition( bt : BaseBehaviorTree, _ : BaseSequenceItem, world : World, turtle : Turtle ) -> int:
+	# has low fuel
+	if BehaviorFunctions.HAS_LOW_FUEL( turtle ) == True:
+		return 1
+	# doesnt have low fuel
+	return 2
+
+BehaviorTrees.MAIN_LOOP = BehaviorTreeBuilder.build_from_nested_dict(
+
+	TreeNodeFactory.condition_switch_node(
+		_2_switch_condition,
+		# has not enough fuel so resolve the issue
+		,
+		# has enough fuel so focus on other activities
+		lambda _, __, ___, turtle : print(f'Turtle {turtle.uid} has minimum coal requirement but nothing else has been implemented!'),
+		None
+	)
+
 )
 
 # very first thing that runs, check if is a new turtle and if has the required items to start
+def _1_switch_condition( _, __, world : World, turtle : Turtle ) -> int:
+	if BehaviorFunctions.IS_BRAND_NEW_TURTLE(world, turtle) == True:
+		return 1 # already initialized, continue to main loop
+	if BehaviorFunctions.HAS_NEW_TURTLE_REQUIREMENTS(turtle) == False:
+		return 2 # does not have the requirements
+	return 3 # has requriements, continue to main loop
+
 BehaviorTrees.INITIALIZER = BehaviorTreeBuilder.build_from_nested_dict(
-	TreeNodeFactory.condition_truefalse_node(
-		BehaviorFunctions.IS_BRAND_NEW_TURTLE,
-		TreeNodeFactory.condition_truefalse_node(
-			BehaviorFunctions.HAS_NEW_TURTLE_REQUIREMENTS,
+
+	TreeNodeFactory.condition_switch_node(
+		_1_switch_condition
+		[
+			# turtle already has been initialized and will start immediately.
+			TreeNodeFactory.action_node(
+				lambda *args : print('Turtle has already been initialized, skipping.'),
+				TreeNodeFactory.pass_to_behavior_tree( BehaviorTrees.MAIN_LOOP, None )
+			),
+			# turtle does not have the initial requirements
+			TreeNodeFactory.multi_action_node([
+				lambda *args : print('Turtle does not have all the requirements to start.'),
+				lambda bt, seq, _, __ : bt.pop_sequencer( seq ) # remove from behavior tree
+			]),
+			# turtle has all the requirements and now it will start.
 			TreeNodeFactory.action_node(
 				lambda *args : print('Turtle has all the requirements to start.'),
 				TreeNodeFactory.pass_to_behavior_tree( BehaviorTrees.MAIN_LOOP, None )
-			),
-			TreeNodeFactory.multi_action_node([
-				lambda *args : print('Turtle does not have all the requirements to start.'),
-				lambda bt, seq, _, __ : bt.pop_sequencer( seq )
-			], None),
-			None
-		),
-		TreeNodeFactory.action_node(
-			lambda *args : print('Turtle has already been initialized, skipping.'),
-			TreeNodeFactory.pass_to_behavior_tree( BehaviorTrees.MAIN_LOOP, None )
-		),
-		None
+			)
+		]
 	)
+
 )
 

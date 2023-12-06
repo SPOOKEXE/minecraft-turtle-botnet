@@ -8,6 +8,7 @@ from library.websocks import BaseWebSocket
 from library.ccturtle import TurtleAPI, BehaviorTrees, Turtle
 from library.minecraft import Point3, World
 from library.recipes import RECIPES, resolve_multi_tree
+from library.behaviortree import BaseSequenceItem
 from websockets.server import WebSocketServerProtocol
 
 def dump_json2( value : dict | list ) -> str:
@@ -111,8 +112,12 @@ class TurtleSequencer:
 
 world = World()
 turtle = Turtle()
-sequencer = BehaviorTrees.INITIALIZER.create_sequencer_item( conditionAutoParams = [ turtle, world ], functionAutoParams = [ turtle, world ] )
-sequencer.wrapToRoot = False
+sequencer = BaseSequenceItem(
+	wrapToRoot = False,
+	conditionAutoParams = [ turtle, world ],
+	functionAutoParams = [ turtle, world ],
+	data = { },
+)
 
 BehaviorTrees.INITIALIZER.start_auto_updater()
 
