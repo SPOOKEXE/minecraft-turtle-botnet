@@ -33,6 +33,13 @@ class TurtleAPI:
 		raise NotImplementedError
 
 	@staticmethod
+	def send_untracked_jobs( turtle : Turtle, jobs : list[list] ) -> None:
+		'''
+		Send untracked jobs to the turtle.
+		'''
+		turtle.queued_jobs.append({ "turtle_id" : turtle.uid, "jobs" : jobs })
+
+	@staticmethod
 	def send_tracked_jobs( turtle : Turtle, jobs : list[ list ] ) -> str:
 		'''
 		Send tracked jobs to the turtle - await results with "TurtleAPI.yield_tracked_results"
@@ -72,6 +79,22 @@ ORE_LEVEL_CONSTANTS = {
 	'minecraft:redstone_ore' : -59
 }
 
+# WHITELISTED_BLOCKS = {
+# 	# block_name : max_quantity
+# 	'minecraft:cobblestone' : 32,
+# 	'minecraft:redstone' : 64,
+# 	'minecraft:lapis_lazuli' : 64,
+# 	'minecraft:iron_ingot' : 64,
+# 	'minecraft:sand' : 64,
+
+# 	'minecraft:chest' : 4,
+# }
+
+class ERROR_MESSAGES:
+	NO_DESIGNATED_ORE = 'Turtle {} has no designated ore target.'
+	UNKNOWN_DESIGNATED_ORE = 'Turtle {} has an unknown designated ore target: {}'
+	MINING_FAILED_TO_REACH_Y_LEVEL = 'Turtle {} failed to mine to the Y level - exiting MINE_ORE_RESOURCE tree.'
+
 class BehaviorFunctions:
 
 	# count the amount of a specific item in the inventory
@@ -90,12 +113,11 @@ class BehaviorFunctions:
 		for (item_id, amount) in items:
 			if inventory_mapping.get(item_id) == None or inventory_mapping.get(item_id) < amount:
 				return False
-		# has requirements
-		return True
+		return True # has requirements
 
 	# is the turtle a brand new one?
 	def IS_BRAND_NEW_TURTLE( world : World, turtle : Turtle ) -> bool:
-		return WorldAPI.does_turtle_exist( world, turtle.uid ) # is the turtle a new turtle?
+		return turtle.is_new_turtle
 
 	# does the turtle have the minimum requirements?
 	def HAS_NEW_TURTLE_REQUIREMENTS( _, __, ___, turtle : Turtle ) -> bool:
@@ -125,13 +147,20 @@ class BehaviorFunctions:
 
 	# go to Y level
 	def MINE_TO_Y_LEVEL( turtle : Turtle, y_level : int ) -> bool:
-		if y_level == turtle.position.y:
-			return True
+		if y_level == turtle.position.y: return True # already here
+		distance = abs( y_level - turtle.position.y )
 		if y_level < turtle.position.y:
-			jobs = [ TurtleActions.digBelow, TurtleActions.down ] * abs( y_level - turtle.position.y )
+			jobs = [ [TurtleActions.digBelow], [TurtleActions.down] ] * distance
 		else:
-			jobs = [ TurtleActions.digAbove, TurtleActions.up ] * abs( y_level - turtle.position.y )
-		TurtleAPI.send_tracked_jobs(turtle, jobs)
+			jobs = [ [TurtleActions.digAbove], [TurtleActions.up] ] * distance
+		tracker_id = TurtleAPI.send_tracked_jobs(turtle, jobs)
+		success, results = TurtleAPI.yield_tracked_results( turtle, tracker_id, timeout=10 + int(distance * 1.5) )
+		if (not success) or (False in results):
+			print( turtle.uid, 'failed to dig to y-level ' + y_level )
+			index = results.index(False)
+			print('Failed on instruction enumeration:', jobs[index])
+			return False
+		return True
 
 # MAIN BEHAVIOR LOOPS
 class BehaviorTrees:
@@ -159,12 +188,10 @@ BehaviorTrees.DIG_TUNNEL = BehaviorTreeBuilder.build_from_nested_dict(
 
 )
 
-def _3_condition_switch( _, __, seq : BaseSequenceItem, turtle : Turtle ) -> int:
-	if type(seq.data.get('target_ore')) != tuple:
-		return 1
+def _3_condition_switch( _, __, seq : BaseSequenceItem, ___ ) -> int:
+	if type(seq.data.get('target_ore')) != tuple: return 1
 	yHeight = ORE_LEVEL_CONSTANTS.get(seq.data['target_ore'][0])
-	if yHeight == None:
-		return 2
+	if yHeight == None: return 2
 	seq.data['target_height'] = yHeight
 	return 3
 
@@ -174,26 +201,25 @@ BehaviorTrees.MINE_ORE_RESOURCE = BehaviorTreeBuilder.build_from_nested_dict(
 		_3_condition_switch,
 		# no target ore selected
 		TreeNodeFactory.action_node(
-			lambda _, __, ___, turtle : print(f'Turtle {turtle.uid} has no designated ore targeted: { turtle.data[0] }'),
+			lambda _, __, ___, turtle : print(ERROR_MESSAGES.NO_DESIGNATED_ORE.format(turtle.uid)),
 			None
 		),
 		# could not find the ore y-level
 		TreeNodeFactory.action_node(
-			lambda _, __, ___, turtle : print(f'Turtle {turtle.uid} has an unknown designated ore selected: { turtle.data[0] }'),
+			lambda _, __, ___, turtle : print( ERROR_MESSAGES.NO_DESIGNATED_ORE.format(turtle.uid, turtle.data['target_ore'][0]) ),
 			None
 		),
 		# ore was found, proceed with mining (go to y level first then mine)
-		TreeNodeFactory.multi_action_node(
-			[
-				# mine to the y-level of the resource
-				lambda _, seq, __, turtle : BehaviorFunctions.MINE_TO_Y_LEVEL( turtle, seq.data.get('target_height') ),
-				# mine until a certain amount of the blocks were dug or fuel is low (if its not coal being mined).
-				TreeNodeFactory.while_condition_node(
-					lambda *args : True,
-					lambda _, __, ___, ____ : None,
-					None
-				)
-			],
+		TreeNodeFactory.condition_truefalse_node(
+			# mine to the target Y level
+			lambda _, seq, __, turtle : BehaviorFunctions.MINE_TO_Y_LEVEL( turtle, seq.data.get('target_height') ),
+			# while hasn't achieved total goal, keep mining until low-fuel (if not getting coal) or goal has been achieved.
+			TreeNodeFactory.while_condition_node(
+				lambda *args : True,
+				lambda _, __, ___, ____ : None,
+				None
+			),
+			lambda _, __, ___, turtle : print(ERROR_MESSAGES.MINING_FAILED_TO_REACH_Y_LEVEL.format(turtle.uid)),
 			None
 		)
 	)
@@ -245,7 +271,7 @@ BehaviorTrees.MAIN_LOOP = BehaviorTreeBuilder.build_from_nested_dict(
 	TreeNodeFactory.condition_switch_node(
 		_2_switch_condition,
 		# has not enough fuel so resolve the issue
-		,
+		BehaviorTrees.LOW_FUEL_RESOLVER,
 		# has enough fuel so focus on other activities
 		lambda _, __, ___, turtle : print(f'Turtle {turtle.uid} has minimum coal requirement but nothing else has been implemented!'),
 		None
@@ -261,6 +287,10 @@ def _1_switch_condition( _, __, world : World, turtle : Turtle ) -> int:
 		return 2 # does not have the requirements
 	return 3 # has requriements, continue to main loop
 
+def set_turtle_is_new_to_false( turtle : Turtle ) -> None:
+	turtle.label = f'{turtle.uid}'
+	turtle.is_new_turtle = False
+
 BehaviorTrees.INITIALIZER = BehaviorTreeBuilder.build_from_nested_dict(
 
 	TreeNodeFactory.condition_switch_node(
@@ -275,10 +305,12 @@ BehaviorTrees.INITIALIZER = BehaviorTreeBuilder.build_from_nested_dict(
 			TreeNodeFactory.multi_action_node([
 				lambda *args : print('Turtle does not have all the requirements to start.'),
 				lambda bt, seq, _, __ : bt.pop_sequencer( seq ) # remove from behavior tree
-			]),
+			], None),
 			# turtle has all the requirements and now it will start.
-			TreeNodeFactory.action_node(
-				lambda *args : print('Turtle has all the requirements to start.'),
+			TreeNodeFactory.multi_action_node([
+					lambda *args : print('Turtle has all the requirements to start.'),
+					lambda _, __, ___, turtle : set_turtle_is_new_to_false(turtle)
+				],
 				TreeNodeFactory.pass_to_behavior_tree( BehaviorTrees.MAIN_LOOP, None )
 			)
 		]

@@ -135,6 +135,7 @@ class Turtle(SolidBlock, Inventory, BaseModel):
 	tracker_results : dict = dict()
 	queued_jobs : list = list()
 	active_jobs : list = list()
+	is_new_turtle : bool = True
 
 class World(BaseModel):
 	uid : str = uuid4().hex
