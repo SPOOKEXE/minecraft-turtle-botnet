@@ -1,11 +1,15 @@
 
+from __future__ import annotations
+
 from uuid import uuid4
 from time import sleep, time
 from uuid import uuid4
 from time import sleep
 
+from sympy import Q
+
 from library.minecraft import Point3, World, Turtle, TurtleActions, WorldAPI
-from library.behaviortree import BaseBehaviorTree, BaseSequenceItem, BehaviorTreeBuilder, BehaviorTreeNode, TreeNodeFactory
+from library.behaviortree import BehaviorTreeBuilder, BaseSequenceItem, TreeNodeFactory
 from library.recipes import RECIPES, resolve_multi_tree, resolve_recipe_tree
 
 class TurtleAPI:
@@ -54,34 +58,115 @@ class TurtleAPI:
 	@staticmethod
 	def query_turtle_initializer( turtleInstance : Turtle ) -> tuple[bool, list[list] | None]:
 		tracker_id : str = TurtleAPI.send_tracked_jobs(turtleInstance, [
-			[ TurtleActions.readInventory ],
-			[ TurtleActions.getEquippedItems ]
+			[ TurtleActions.getTurtleInfo ]
 		])
 		return TurtleAPI.yield_tracked_results( tracker_id )
 
+def increment_dictionary( cache : dict, index : str, amount : int ) -> None:
+	try: cache[index] += amount
+	except: cache[index] = amount
+
+class CONSTANTS:
+
+	COAL_Y_HEIGHT = 44
+
 class BehaviorFunctions:
 
-	IS_BRAND_NEW_TURTLE = None # is the turtle a new turtle?
-	HAS_NEW_TURTLE_REQUIREMENTS = None # does the turtle have the minimum requirements
+	# does the turtle have the items in its inventory / equipped?
+	def HAS_ITEMS_IN_INVENTORY( turtle : Turtle, items : list[tuple[str, int]] ) -> bool:
+		# map the inventory
+		inventory_mapping = {}
+		for (item_id, amount) in turtle.inventory: increment_dictionary( inventory_mapping, item_id, amount )
+		if turtle.left_hand != None: increment_dictionary( inventory_mapping, turtle.left_hand.name, turtle.left_hand.quantity )
+		if turtle.right_hand != None: increment_dictionary( inventory_mapping, turtle.right_hand.name, turtle.right_hand.quantity )
+		# check requirements
+		for (item_id, amount) in items:
+			if inventory_mapping.get(item_id) == None or inventory_mapping.get(item_id) < amount:
+				return False
+		# has requirements
+		return True
 
-	HAS_ABOVE_MINIMUM_COAL = None # pre 'HAS_LOW_FUEL' to get coal immediately
-	HAS_LOW_FUEL = None # post 'HAS_ABOVE_MINIMUM_COAL' to determine when to search for fuel again
+	# is the turtle a brand new one?
+	def IS_BRAND_NEW_TURTLE( _, __, world : World, turtle : Turtle ) -> bool:
+		return WorldAPI.does_turtle_exist( world, turtle.uid ) # is the turtle a new turtle?
 
-class BehaviorTrees:
+	# does the turtle have the minimum requirements?
+	def HAS_NEW_TURTLE_REQUIREMENTS( _, __, ___, turtle : Turtle ) -> bool:
+		# check for iron pickaxe and crafting table
+		if not BehaviorFunctions.HAS_ITEMS_IN_INVENTORY( turtle, [
+			('minecraft:iron_pickaxe', 1),
+			('minecraft:crafting_table', 1)
+		] ): return False
+		# check for fuel / coal_block
+		if turtle.fuel < 800 and not BehaviorFunctions.HAS_ITEMS_IN_INVENTORY( turtle, [('minecraft:coal_block', 1)] ):
+			return False
+		# has requirements
+		return True
 
-	FIND_ORE_RESOURCE = None # REQUIREMENT : fuel
-	FIND_SURFACE_RESOURCE = None # REQUIREMENT : fuel
-	FIND_UNDERGROUND_RESOURCE = None # REQUIREMENT : fuel
-	FIND_SAND_RESOURCE = None # REQUIREMENT : fuel
-	FIND_WOOD_RESOURCE = None # REQUIREMENT : fuel
+	# post 'HAS_ABOVE_MINIMUM_COAL' to determine when to search for fuel again
+	def HAS_LOW_FUEL( _, __, ___, turtle : Turtle ) -> bool:
+		y_diff = abs(turtle.position.y - CONSTANTS.COAL_Y_HEIGHT)
+		return (turtle.fuel - y_diff) < 100 # allows 100 blocks to find coal at the COAL_Y_HEIGHT
 
-	FIND_TARGET_RESOURCE = None
-	CRAFT_TARGET_RESOURCE = None
-	SMELT_TARGET_RESOURCE = None
-	BREAK_ORE_VEIN = None # follow and break the block vein
-	FARM_TREE_SAPLING = None # place dirt, plant sapling, wait until grows, dig log + leaves
+	# set target resource
+	def SET_TARGET_ORE( seq : BaseSequenceItem, block : str, amount : int ) -> None:
+		seq.data = (block, amount)
 
-	# MAIN BEHAVIOR LOOPS
-	INITIALIZER = None # very first thing that runs
+# MAIN BEHAVIOR LOOPS
+class BehaviorTrees: pass
 
+BehaviorTrees.FIND_ORE_RESOURCE = BehaviorTreeBuilder.build_from_nested_dict(
+	TreeNodeFactory.condition_truefalse_node(
+		
+	)
+)
+
+BehaviorTrees.FIND_SURFACE_RESOURCE = None # REQUIREMENT : fuel
+BehaviorTrees.FIND_UNDERGROUND_RESOURCE = None # REQUIREMENT : fuel
+BehaviorTrees.FIND_SAND_RESOURCE = None # REQUIREMENT : fuel
+BehaviorTrees.FIND_WOOD_RESOURCE = None # REQUIREMENT : fuel
+
+BehaviorTrees.FIND_TARGET_RESOURCE = None
+BehaviorTrees.CRAFT_TARGET_RESOURCE = None
+BehaviorTrees.SMELT_TARGET_RESOURCE = None
+BehaviorTrees.BREAK_ORE_VEIN = None # follow and break the block vein
+BehaviorTrees.FARM_TREE_SAPLING = None # place dirt, plant sapling, wait until grows, dig log + leaves
+
+# main brain loop
+BehaviorTrees.MAIN_LOOP = BehaviorTreeBuilder.build_from_nested_dict(
+	TreeNodeFactory.condition_truefalse_node(
+		BehaviorFunctions.HAS_LOW_FUEL,
+		TreeNodeFactory.hook_behavior_tree(
+			BehaviorTrees.FIND_ORE_RESOURCE,
+			lambda _, seq, __, ___ : BehaviorFunctions.SET_TARGET_ORE(seq, 'minecraft:coal_ore', 4),
+			None
+		),
+		None,
+		None
+	)
+)
+
+# very first thing that runs, check if is a new turtle and if has the required items to start
+BehaviorTrees.INITIALIZER = BehaviorTreeBuilder.build_from_nested_dict(
+	TreeNodeFactory.condition_truefalse_node(
+		BehaviorFunctions.IS_BRAND_NEW_TURTLE,
+		TreeNodeFactory.condition_truefalse_node(
+			BehaviorFunctions.HAS_NEW_TURTLE_REQUIREMENTS,
+			TreeNodeFactory.action_node(
+				lambda *args : print('Turtle has all the requirements to start.'),
+				TreeNodeFactory.pass_to_behavior_tree( BehaviorTrees.MAIN_LOOP, None )
+			),
+			TreeNodeFactory.multi_action_node([
+				lambda *args : print('Turtle does not have all the requirements to start.'),
+				lambda bt, seq, _, __ : bt.pop_sequencer( seq )
+			], None),
+			None
+		),
+		TreeNodeFactory.action_node(
+			lambda *args : print('Turtle has already been initialized, skipping.'),
+			TreeNodeFactory.pass_to_behavior_tree( BehaviorTrees.MAIN_LOOP, None )
+		),
+		None
+	)
+)
 

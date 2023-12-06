@@ -128,7 +128,7 @@ class Turtle(SolidBlock, Inventory, BaseModel):
 	position : Point3 = Point3()
 	direction : Direction = Direction.north
 
-	inventory : Inventory = list()
+	inventory : list = list()
 	left_hand : Item = None
 	right_hand : Item = None
 

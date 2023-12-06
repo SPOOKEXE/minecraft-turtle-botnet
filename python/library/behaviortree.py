@@ -10,6 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from random import randint
 from threading import Thread
+import traceback
 from typing import Any, Callable
 from enum import Enum
 from uuid import uuid4
@@ -19,18 +20,19 @@ def array_find( array : list, value : Any ) -> int:
 	'''
 	Try find a value within the array. Returns -1 if not found.
 	'''
-	try:
-		return array.index(value)
-	except:
-		return -1
+	try: return array.index(value)
+	except: return -1
 
 class NodeEnums(Enum):
 	Action = 0
-	ConditionTrueFalse = 1
-	ConditionSwitch = 2
-	ConditionWhileTrue = 3
-	RandomSwitch = 4
-	Delay = 5
+	MultiAction = 1
+	ConditionTrueFalse = 2
+	ConditionSwitch = 3
+	ConditionWhileTrue = 4
+	RandomSwitch = 5
+	Delay = 6
+	HookBehaviorTree = 7
+	PassToBehaviorTree = 8
 
 @dataclass
 class BehaviorTreeNode:
@@ -48,6 +50,8 @@ class BehaviorTreeNode:
 	if_false_branch : BehaviorTreeNode | Callable | None = None
 	action : Callable | None = None
 	delay : int | float | None = None
+	behavior_tree : BaseBehaviorTree | None = None
+	mutator : Callable | None = None
 
 class TreeNodeFactory:
 	'''
@@ -59,6 +63,12 @@ class TreeNodeFactory:
 		A action node for the behavior tree.
 		'''
 		return BehaviorTreeNode( type=NodeEnums.Action, action=callback, nextNode=nextNode )
+
+	def multi_action_node( callbacks : list[Callable], nextNode : BehaviorTreeNode | None ) -> BehaviorTreeNode:
+		'''
+		A action node for the behavior tree.
+		'''
+		return BehaviorTreeNode( type=NodeEnums.MultiAction, actions=callbacks, nextNode=nextNode )
 
 	def while_condition_node( condition : Callable[ [Any], bool ], callback : Callable[ [Any], None ], nextNode : BehaviorTreeNode | None ) -> BehaviorTreeNode:
 		'''
@@ -90,6 +100,18 @@ class TreeNodeFactory:
 		'''
 		return BehaviorTreeNode( type=NodeEnums.RandomSwitch, branches=branches, nextNode=nextNode )
 
+	def hook_behavior_tree( target_behavior_tree : BaseBehaviorTree, mutator : Callable | None, nextNode : BehaviorTreeNode | None ) -> BehaviorTreeNode:
+		'''
+		Append to target tree but wait until full completion then continue on here
+		'''
+		return BehaviorTreeNode( type=NodeEnums.HookBehaviorTree, behavior_tree=target_behavior_tree, mutator=mutator, nextNode=nextNode )
+
+	def pass_to_behavior_tree( target_behavior_tree : BaseBehaviorTree, mutator : Callable | None ) -> BehaviorTreeNode:
+		'''
+		Append to target tree and remove from current tree
+		'''
+		return BehaviorTreeNode( type=NodeEnums.PassToBehaviorTree, behavior_tree=target_behavior_tree, mutator=mutator, nextNode=None )
+
 @dataclass
 class BaseSequenceItem:
 	currentNodeId : str = None
@@ -97,6 +119,10 @@ class BaseSequenceItem:
 	conditionAutoParams : list[Any] = field(default_factory=list)
 	functionAutoParams : list[Any] = field(default_factory=list)
 	isUpdating : bool = False
+	data : Any | None = None
+
+	wrapToRoot : bool = True
+	isCompleted : bool = False
 
 class BaseBehaviorTree:
 	nodes : list[BehaviorTreeNode]
@@ -126,12 +152,19 @@ class BaseBehaviorTree:
 		Internally update the behavior tree sequence item.
 		'''
 
-		currentNodeId : BehaviorTreeNode = None
-		try: currentNodeId = sequence_item.nextNodeCache.pop()
-		except: currentNodeId = self.rootNode.id # lost its way on the path / starting off with no node
+		print(sequence_item.currentNodeId, sequence_item.nextNodeCache)
 
+		currentNodeId : BehaviorTreeNode = None
+		try:
+			currentNodeId = sequence_item.nextNodeCache.pop()
+		except:
+			if sequence_item.wrapToRoot:
+				currentNodeId = self.rootNode.id # starting off with no node
+			else:
+				sequence_item.isCompleted = True
+				return
 		try: currentNode = self._idToNode[currentNodeId]
-		except: currentNode = self.rootNode
+		except: raise ValueError('Could not find node from id:', currentNodeId) # currentNode = self.rootNode
 
 		sequence_item.currentNodeId = currentNodeId
 		condArgs = sequence_item.conditionAutoParams!=None and sequence_item.conditionAutoParams or []
@@ -143,6 +176,10 @@ class BaseBehaviorTree:
 		if currentNode.type == NodeEnums.Action:
 
 			currentNode.action( self, sequence_item, *funcArgs )
+
+		elif currentNode.type == NodeEnums.MultiAction:
+
+			for action in currentNode.actions: action( self, sequence_item, *funcArgs )
 
 		elif currentNode.type == NodeEnums.ConditionSwitch:
 
@@ -183,6 +220,23 @@ class BaseBehaviorTree:
 			elif type(value) == str and self._idToNode.get(value) != None:
 				sequence_item.nextNodeCache.insert(0, value)
 
+		elif currentNode.type == NodeEnums.HookBehaviorTree:
+
+			previous_wrapRoot = sequence_item.wrapToRoot
+			currentNode.behavior_tree.append_sequencer( sequence_item )
+
+			sequence_item.wrapToRoot = False
+			currentNode.behavior_tree.await_sequencer_completion( sequence_item )
+
+			sequence_item.wrapToRoot = previous_wrapRoot
+
+		elif currentNode.type == NodeEnums.PassToBehaviorTree:
+
+			# mutate before popping
+			if currentNode.mutator != None: currentNode.mutator( self, sequence_item )
+			self.pop_sequencer( sequence_item )
+			currentNode.behavior_tree.append_sequencer( sequence_item )
+
 		else:
 			print("NodeEnum is not implemented: ", currentNode.type.name )
 
@@ -195,7 +249,15 @@ class BaseBehaviorTree:
 
 		def update_thread( sequencer ):
 			nonlocal self
-			self._internal_update_sequencer_item( sequencer )
+			try:
+				self._internal_update_sequencer_item( sequencer )
+			except Exception as exception:
+				print('An exception has occured trying to update a sequencer item!')
+				print('=================================')
+				traceback.print_exception(exception)
+				print('=================================')
+				print('Sequencer item has been removed.')
+				self.pop_sequencer( sequencer )
 			sequencer.isUpdating = False
 
 		index : int = 0
@@ -211,6 +273,7 @@ class BaseBehaviorTree:
 		Start the behavior tree auto updater.
 		'''
 		if self.autoUpdaterEnabled: return
+		print('Starting behavior tree auto-updater.')
 		self.autoUpdaterEnabled = True
 
 		def _thread( ) -> None:
@@ -224,6 +287,7 @@ class BaseBehaviorTree:
 		'''
 		Stop the behavior tree auto updater
 		'''
+		print('Killing behavior tree auto-updater.')
 		self.autoUpdaterEnabled = False
 
 	def create_sequencer_item( self, *args, **kwargs ) -> BaseSequenceItem:
@@ -236,25 +300,41 @@ class BaseBehaviorTree:
 		'''
 		Append a sequencer item to the behavior tree resolver.
 		'''
+		sequencer.nextNodeCache = [self.rootNode.id]
+		sequencer.isCompleted = False
+		sequencer.isUpdating = False
 		self._sequencersCache.append( sequencer )
 
 	def append_bulk_sequencers( self, sequencers : list[BaseSequenceItem] ) -> None:
 		'''
 		Bulk append sequencer items to the behavior tree resolver.
 		'''
+		for seq in sequencers:
+			seq.currentNodeId = self.rootNode.id
+			seq.isCompleted = False
 		self._sequencersCache.extend( sequencers )
 
 	def pop_sequencer( self, sequencer : BaseSequenceItem ) -> None:
 		'''
 		Pop a sequencer item to the behavior tree resolver.
 		'''
+		sequencer.currentNodeId = None
+		sequencer.isCompleted = False
 		index : int = array_find( self._sequencersCache, sequencer )
 		while index != -1:
 			self._sequencersCache.pop( index )
 			index : int = array_find( self._sequencersCache, sequencer )
 
-	def await_sequencer_complete( self, sequencer : BaseSequenceItem, interval : float | int = 1/60 ) -> None:
-		while sequencer.isUpdating: sleep(interval)
+	def await_sequencer_update( self, sequencer : BaseSequenceItem, interval : float | int = 1/60 ) -> None:
+		while array_find( self._sequencersCache, sequencer ) != -1 and sequencer.isUpdating:
+			sleep(interval)
+
+	def await_sequencer_completion( self, sequencer : BaseSequenceItem, interval : float | int = 1/60 ) -> None:
+		'''
+		Note: will immediately return if 'wrapToRoot' is equal to True.
+		'''
+		while array_find( self._sequencersCache, sequencer ) != -1 and (not sequencer.isCompleted) and (not sequencer.wrapToRoot):
+			sleep(interval)
 
 	def find_root_node( self ) -> Any:
 		'''

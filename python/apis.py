@@ -5,8 +5,9 @@ import traceback
 from typing import Any
 
 from library.websocks import BaseWebSocket
-from library.ccturtle import TurtleAPI, BehaviorTrees
+from library.ccturtle import TurtleAPI, BehaviorTrees, Turtle
 from library.minecraft import Point3, World
+from library.recipes import RECIPES, resolve_multi_tree
 from websockets.server import WebSocketServerProtocol
 
 def dump_json2( value : dict | list ) -> str:
@@ -98,7 +99,31 @@ class CCTurtleHost(BaseWebSocket):
 		print(response)
 		await ws.send( dump_json2(response) )
 
-world = World()
+class TurtleSequencer:
 
-socket = CCTurtleHost(world=world)
-socket.start()
+	def __init__( self, world : World, turtle : Turtle ):
+		self.world = world
+		self.turtle = turtle
+		self.sequencer = BehaviorTrees.INITIALIZER.create_sequencer_item(
+			conditionAutoParams = [ turtle, world ],
+			functionAutoParams = [ turtle, world ]
+		)
+
+world = World()
+turtle = Turtle()
+sequencer = BehaviorTrees.INITIALIZER.create_sequencer_item( conditionAutoParams = [ turtle, world ], functionAutoParams = [ turtle, world ] )
+sequencer.wrapToRoot = False
+
+BehaviorTrees.INITIALIZER.start_auto_updater()
+
+BehaviorTrees.INITIALIZER.append_sequencer( sequencer )
+BehaviorTrees.INITIALIZER.await_sequencer_completion( sequencer )
+
+print( 'COMPLETED!' )
+
+BehaviorTrees.INITIALIZER.pop_sequencer( sequencer )
+
+BehaviorTrees.INITIALIZER.stop_auto_updater()
+
+# socket = CCTurtleHost(world=world)
+# socket.start()

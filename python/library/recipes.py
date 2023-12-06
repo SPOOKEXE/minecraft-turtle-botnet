@@ -436,8 +436,7 @@ def resolve_recipe_tree( target_id : str, total_amount : int ) -> tuple[dict, in
 			# print( 'CRAFT: ', item, total_items )
 
 			first_recipe = recipe.get('craft')[0]
-			first_out_per_craft = first_recipe.get('amount')
-
+			# first_out_per_craft = first_recipe.get('amount')
 			# print( 'count recipe: ', item, first_out_per_craft )
 
 			for block_id, amount_in_recipe in count_values(first_recipe.get('recipe')).items():
@@ -484,14 +483,16 @@ def resolve_multi_tree( items : list[tuple[str, int]], include_fuel : bool = Tru
 		increment_amount(total_resources, 'minecraft:coal_ore', ceil(total_smelts / 8))
 	return total_resources, total_smelts
 
-total_resources, total_smelts = resolve_multi_tree([
-	('computercraft:turtle_normal', 1),
-	('minecraft:iron_pickaxe', 1),
-	('minecraft:crafting_table', 1),
-	('minecraft:furnace', 3),
-	('computercraft:disk', 1),
-	('computercraft:disk_drive', 1),
-	('minecraft:coal_block', 1),
-])
+if __name__ == '__main__':
 
-print( json.dumps(total_resources, indent=4) )
+	total_resources, total_smelts = resolve_multi_tree([
+		('computercraft:turtle_normal', 1),
+		('minecraft:iron_pickaxe', 1),
+		('minecraft:crafting_table', 1),
+		('minecraft:furnace', 3),
+		('computercraft:disk', 1),
+		('computercraft:disk_drive', 1),
+		('minecraft:coal_block', 1),
+	])
+
+	print( json.dumps(total_resources, indent=4) )
