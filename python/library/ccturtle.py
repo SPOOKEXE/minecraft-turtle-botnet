@@ -6,8 +6,6 @@ from time import sleep, time
 from uuid import uuid4
 from time import sleep
 
-from sympy import Q
-
 from library.minecraft import Point3, World, Turtle, TurtleActions, WorldAPI
 from library.behaviortree import BehaviorTreeBuilder, BaseSequenceItem, TreeNodeFactory
 from library.recipes import RECIPES, resolve_multi_tree, resolve_recipe_tree
@@ -68,7 +66,11 @@ def increment_dictionary( cache : dict, index : str, amount : int ) -> None:
 
 class CONSTANTS:
 
+	# https://minecraft.fandom.com/wiki/Ore
 	COAL_Y_HEIGHT = 44
+	LAPIS_Y_HEIGHT = -1
+	IRON_Y_HEIGHT = 15
+	REDSTONE_Y_HEIGHT = -59
 
 class BehaviorFunctions:
 
@@ -117,7 +119,7 @@ class BehaviorTrees: pass
 
 BehaviorTrees.FIND_ORE_RESOURCE = BehaviorTreeBuilder.build_from_nested_dict(
 	TreeNodeFactory.condition_truefalse_node(
-		
+
 	)
 )
 

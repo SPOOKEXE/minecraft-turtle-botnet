@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
+import traceback
+
 from copy import deepcopy
 from dataclasses import dataclass, field
 from random import randint
 from threading import Thread
-import traceback
 from typing import Any, Callable
 from enum import Enum
 from uuid import uuid4
