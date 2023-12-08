@@ -1,9 +1,11 @@
 
 starting operation:
 -------------------
-- refuel (coal block)
-- check how much fuel turtle has; if not past a threashold (100 blocks?), ask for more.
-- check for crafting table in inventory OR equipped left/right
+- check if turtle has >=800 fuel or coal block in inventory
+- check for crafting table in inventory OR L/R hand
+- check for iron pickaxe in inventory OR L/R hand
+- check for iron shovel in inventory OR L/R hand
+- check for iron axe in inventory OR L/R hand
 
 logic thought processes:
 ------------------------

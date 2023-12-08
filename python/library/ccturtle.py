@@ -124,7 +124,9 @@ class BehaviorFunctions:
 		# check for iron pickaxe and crafting table
 		if not BehaviorFunctions.HAS_ITEMS_IN_INVENTORY( turtle, [
 			('minecraft:iron_pickaxe', 1),
-			('minecraft:crafting_table', 1)
+			('minecraft:iron_shovel', 1),
+			('minecraft:iron_axe', 1),
+			('minecraft:crafting_table', 1),
 		] ): return False
 		# check for fuel / coal_block
 		if turtle.fuel < 800 and not BehaviorFunctions.HAS_ITEMS_IN_INVENTORY( turtle, [('minecraft:coal_block', 1)] ):
