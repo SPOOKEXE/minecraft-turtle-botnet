@@ -235,6 +235,24 @@ RECIPES = {
 		)
 	]),
 
+	"minecraft:iron_shovel" : craftable_resource([
+		construct_craft_recipe(
+			4,
+			None, "minecraft:iron_ingot", None,
+			None, "minecraft:stick", None,
+			None, "minecraft:stick", None,
+		)
+	]),
+
+	"minecraft:iron_axe" : craftable_resource([
+		construct_craft_recipe(
+			4,
+			"minecraft:iron_ingot", "minecraft:iron_ingot", None,
+			"minecraft:iron_ingot", "minecraft:stick", None,
+			None, "minecraft:stick", None,
+		)
+	]),
+
 	"minecraft:chest" : craftable_resource([
 		construct_craft_recipe(
 			1,
@@ -475,6 +493,7 @@ def resolve_multi_tree( items : list[tuple[str, int]], include_fuel : bool = Tru
 	for (item_id, amount) in items:
 		print(item_id, amount)
 		resources, smelts = resolve_recipe_tree( item_id, amount )
+		# print(item_id, resources)
 		# print(resources, smelts)
 		push_and_increment( total_resources, resources )
 		total_smelts += smelts
@@ -487,6 +506,8 @@ if __name__ == '__main__':
 	total_resources, total_smelts = resolve_multi_tree([
 		('computercraft:turtle_normal', 1),
 		('minecraft:iron_pickaxe', 1),
+		('minecraft:iron_shovel', 1),
+		('minecraft:iron_axe', 1),
 		('minecraft:crafting_table', 1),
 		('minecraft:furnace', 3),
 		('computercraft:disk', 1),
